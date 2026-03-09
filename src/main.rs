@@ -1,12 +1,8 @@
-#![deny(warnings)]
-use scraper::{ElementRef, Html, Selector};
-use std::fs;
-
-#[derive(Debug)]
-struct Match {
-    title: String,
-    is_resale: bool,
-}
+mod parser;
+use parser::Parser;
+use teloxide::prelude::*;
+use teloxide::types::ChatId;
+use tokio::time::{self, Duration};
 
 #[cfg(not(target_arch = "wasm32"))]
 #[tokio::main]
@@ -19,76 +15,55 @@ async fn main() -> Result<(), reqwest::Error> {
         "https://billetterie.staderochelais.com/fr".into()
     };
 
-    eprintln!("Fetching {url:?}...");
+    let parser = Parser::new(url);
 
-    let mut matchs: Vec<Match> = Vec::new();
+    let mut ticker = time::interval(Duration::from_secs(1 * 60));
 
-    let res = reqwest::get(url).await?;
+    loop {
+        // attend le prochain "tick"
+        ticker.tick().await;
 
-    let body = res.text().await?;
+        let matches = parser.fetch_and_parse().await?;
 
-    fs::write("response.html", &body).expect("Unable to write file");
+        println!("Found {} matches:", matches.len());
 
-    let document = Html::parse_document(&body);
-
-    let selector = Selector::parse(".actions-wrapper").unwrap();
-    let resale_button_selector = Selector::parse("button.btn-resale").unwrap();
-    let stade_link_selector = Selector::parse("a[href*=\"stade_rochelais\"]").unwrap();
-    let h3_selector = Selector::parse("h3.title").unwrap();
-
-    let mut count = 0;
-    let mut extracted = String::new();
-    for actions in document.select(&selector) {
-        if let Some(resale_button) = actions.select(&resale_button_selector).next() {
-            if actions.select(&stade_link_selector).next().is_none() {
-                continue;
-            }
-
-            let is_resale_available = resale_button
-                .value()
-                .attr("class")
-                .map(|class_attr| {
-                    class_attr
-                        .split_whitespace()
-                        .any(|class_name| class_name == "available")
-                })
-                .unwrap_or(false);
-
-            count += 1;
-            let h3_text = actions
-                .ancestors()
-                .filter_map(ElementRef::wrap)
-                .find_map(|ancestor| {
-                    ancestor
-                        .select(&h3_selector)
-                        .next()
-                        .map(|h3| h3.text().collect::<String>().trim().to_string())
-                })
-                .unwrap_or_else(|| "H3 not found".to_string());
-
-            matchs.push(Match {
-                title: h3_text.clone(),
-                is_resale: is_resale_available,
-            });
-            println!("Found match: {h3_text}, resale available: {is_resale_available}");
-
-            extracted.push_str(&format!("<h3>{}</h3>\n", h3_text));
-            extracted.push_str(&resale_button.html());
-            extracted.push_str("\n\n");
+        if !matches.is_empty() {
+            notify_telegram(&matches)
+                .await
+                .unwrap_or_else(|err| eprintln!("Error sending Telegram notification: {err}"));
+        } else {
+            test_sending()
+                .await
+                .unwrap_or_else(|err| eprintln!("Error sending Telegram test message: {err}"));
         }
     }
+}
 
-    println!(
-        "match name : {}, resale available: {}",
-        matchs[0].title, matchs[0].is_resale
-    );
+async fn notify_telegram(matches: &[parser::Match]) -> Result<(), Box<dyn std::error::Error>> {
+    dotenvy::dotenv().ok();
+    let bot = Bot::from_env();
+    let chat_id: i64 = std::env::var("TELEGRAM_CHAT_ID")?.parse()?;
 
-    fs::write("extract.txt", extracted).expect("Unable to write extract.txt");
-    eprintln!("Saved {count} actions-wrapper blocks to extract.txt");
+    // let resale_matches: Vec<_> = matches.iter().filter(|m| m.is_resale).collect();
 
+    let mut message = String::from("Reventes disponibles:\n");
+    for m in matches {
+        message.push_str(&format!("- {}\n", m.title));
+    }
+
+    bot.send_message(ChatId(chat_id), message).await?;
     Ok(())
 }
 
+async fn test_sending() -> Result<(), Box<dyn std::error::Error>> {
+    dotenvy::dotenv().ok();
+    let bot = Bot::from_env();
+    let chat_id: i64 = std::env::var("TELEGRAM_CHAT_ID")?.parse()?;
+
+    bot.send_message(ChatId(chat_id), "Test message from Rust!")
+        .await?;
+    Ok(())
+}
 // The [cfg(not(target_arch = "wasm32"))] above prevent building the tokio::main function
 // for wasm32 target, because tokio isn't compatible with wasm32.
 // If you aren't building for wasm32, you don't need that line.
