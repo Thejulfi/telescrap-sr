@@ -31,11 +31,12 @@ async fn main() -> Result<(), reqwest::Error> {
             notify_telegram(&matches)
                 .await
                 .unwrap_or_else(|err| eprintln!("Error sending Telegram notification: {err}"));
-        } else {
-            test_sending()
-                .await
-                .unwrap_or_else(|err| eprintln!("Error sending Telegram test message: {err}"));
         }
+        // else {
+        //     test_sending()
+        //         .await
+        //         .unwrap_or_else(|err| eprintln!("Error sending Telegram test message: {err}"));
+        // }
     }
 }
 
@@ -55,15 +56,15 @@ async fn notify_telegram(matches: &[parser::Match]) -> Result<(), Box<dyn std::e
     Ok(())
 }
 
-async fn test_sending() -> Result<(), Box<dyn std::error::Error>> {
-    dotenvy::dotenv().ok();
-    let bot = Bot::from_env();
-    let chat_id: i64 = std::env::var("TELEGRAM_CHAT_ID")?.parse()?;
+// async fn test_sending() -> Result<(), Box<dyn std::error::Error>> {
+//     dotenvy::dotenv().ok();
+//     let bot = Bot::from_env();
+//     let chat_id: i64 = std::env::var("TELEGRAM_CHAT_ID")?.parse()?;
 
-    bot.send_message(ChatId(chat_id), "Test message from Rust!")
-        .await?;
-    Ok(())
-}
+//     bot.send_message(ChatId(chat_id), "Test message from Rust!")
+//         .await?;
+//     Ok(())
+// }
 // The [cfg(not(target_arch = "wasm32"))] above prevent building the tokio::main function
 // for wasm32 target, because tokio isn't compatible with wasm32.
 // If you aren't building for wasm32, you don't need that line.

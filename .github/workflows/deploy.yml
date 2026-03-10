@@ -1,0 +1,59 @@
+name: Cross-Compile and Deploy
+on:
+  push:
+    branches: [ main, dev/jfi ]
+
+jobs:
+  build-linux-arm64:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          targets: aarch64-unknown-linux-gnu
+
+      - name: Install Cross
+        run: cargo install cross --git https://github.com/cross-rs/cross
+
+      - name: Build for Raspberry Pi (64-bit)
+        env:
+          CROSS_NO_WARNINGS: 0
+        run: cross build --release --target aarch64-unknown-linux-gnu
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pi-binary
+          path: target/aarch64-unknown-linux-gnu/release/telescrap-sr
+
+      - name: Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci-sr-rugby-scrapper
+
+      - name: Prepare deployment directory
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.PI_HOST }}
+          username: jfi
+          password: ${{ secrets.RPI_PASS }}
+          script: |
+            mkdir -p ~/rust-project
+            chmod 755 ~/rust-project
+            rm -f ~/rust-project/telescrap-sr
+
+      - name: Copy file via SCP
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.PI_HOST }}
+          username: jfi
+          password: ${{ secrets.RPI_PASS }}
+          source: "target/aarch64-unknown-linux-gnu/release/telescrap-sr"
+          target: "~/rust-project/"
+          strip_components: 3
+          overwrite: true
