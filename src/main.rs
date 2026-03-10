@@ -1,4 +1,5 @@
 mod parser;
+use chrono::Local;
 use parser::Parser;
 use teloxide::prelude::*;
 use teloxide::types::ChatId;
@@ -17,7 +18,7 @@ async fn main() -> Result<(), reqwest::Error> {
 
     let parser = Parser::new(url);
 
-    let mut ticker = time::interval(Duration::from_secs(1 * 60));
+    let mut ticker = time::interval(Duration::from_secs(10 * 60));
 
     loop {
         // attend le prochain "tick"
@@ -25,7 +26,8 @@ async fn main() -> Result<(), reqwest::Error> {
 
         let matches = parser.fetch_and_parse().await?;
 
-        println!("Found {} matches:", matches.len());
+        let ts = Local::now().format("%Y-%m-%d %H:%M:%S");
+        println!("[{}] Found {} matches:", ts, matches.len());
 
         if !matches.is_empty() {
             notify_telegram(&matches)
