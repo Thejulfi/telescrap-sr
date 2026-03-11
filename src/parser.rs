@@ -1,4 +1,8 @@
+use std::collections::HashSet;
+
 use scraper::{ElementRef, Html, Selector};
+
+const FILTER_STADE_ROCHELAIS_ONLY: bool = true;
 
 #[derive(Debug, Clone)]
 pub struct Match {
@@ -19,11 +23,11 @@ impl Parser {
         let response = reqwest::get(&self.url).await?;
         let body = response.text().await?;
 
-        let mut matches = Self::parse_matches(&body);
+        let matches = Self::parse_matches(&body);
 
         let mut sorted_matches = Vec::new();
 
-        sorted_matches = Self::sort_matches(&mut matches).unwrap_or_else(|err| {
+        sorted_matches = Self::sort_matches(&matches).unwrap_or_else(|err| {
             eprintln!("Error sorting matches: {err}");
             sorted_matches
         });
@@ -36,25 +40,30 @@ impl Parser {
 
         let document = Html::parse_document(body);
         let actions_selector = Selector::parse(".actions-wrapper").unwrap();
-        let resale_button_selector = Selector::parse("button.btn-resale").unwrap();
-        let stade_link_selector = Selector::parse("a[href*=\"stade_rochelais\"]").unwrap();
+        let resale_action_selector = Selector::parse(".btn-resale").unwrap();
+        let stade_link_selector =
+            Selector::parse("a[href*=\"stade_rochelais\"]:not([href*=\"stade_rochelais_basket\"])")
+                .unwrap();
         let h3_selector = Selector::parse("h3.title").unwrap();
 
         for actions in document.select(&actions_selector) {
-            if let Some(resale_button) = actions.select(&resale_button_selector).next() {
-                if actions.select(&stade_link_selector).next().is_none() {
+            if let Some(resale_action) = actions.select(&resale_action_selector).next() {
+                if FILTER_STADE_ROCHELAIS_ONLY
+                    && actions.select(&stade_link_selector).next().is_none()
+                {
                     continue;
                 }
 
-                let is_resale_available = resale_button
-                    .value()
-                    .attr("class")
-                    .map(|class_attr| {
-                        class_attr
-                            .split_whitespace()
-                            .any(|class_name| class_name == "available")
-                    })
-                    .unwrap_or(false);
+                let is_resale_available = resale_action.value().attr("href").is_some()
+                    || resale_action
+                        .value()
+                        .attr("class")
+                        .map(|class_attr| {
+                            !class_attr
+                                .split_whitespace()
+                                .any(|class_name| class_name == "unavailable")
+                        })
+                        .unwrap_or(false);
 
                 let h3_text = actions
                     .ancestors()
@@ -77,11 +86,12 @@ impl Parser {
         matches
     }
 
-    fn sort_matches(matches: &mut Vec<Match>) -> Result<Vec<Match>, String> {
+    fn sort_matches(matches: &[Match]) -> Result<Vec<Match>, String> {
         let mut sorted_matches = Vec::new();
+        let mut seen_titles = HashSet::new();
 
-        for match_item in matches.iter_mut() {
-            if match_item.is_resale {
+        for match_item in matches.iter() {
+            if match_item.is_resale && seen_titles.insert(match_item.title.clone()) {
                 sorted_matches.push(match_item.clone());
             }
         }
