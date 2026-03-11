@@ -1,9 +1,11 @@
 mod parser;
+mod telegram;
 use chrono::Local;
 use parser::Parser;
-use teloxide::prelude::*;
-use teloxide::types::ChatId;
+use telegram::Telegram;
 use tokio::time::{self, Duration};
+
+const PARSING_WEB_TIMEOUT_SECONDS: u64 = 1;
 
 #[cfg(not(target_arch = "wasm32"))]
 #[tokio::main]
@@ -16,9 +18,16 @@ async fn main() -> Result<(), reqwest::Error> {
         "https://billetterie.staderochelais.com/fr".into()
     };
 
+    let telegram = Telegram::new().await;
+
+    let telegram_for_commands = telegram.clone();
+    tokio::spawn(async move {
+        telegram_for_commands.run_command_listener().await;
+    });
+
     let parser = Parser::new(url);
 
-    let mut ticker = time::interval(Duration::from_secs(10 * 60));
+    let mut ticker = time::interval(Duration::from_secs(PARSING_WEB_TIMEOUT_SECONDS * 60));
 
     loop {
         // attend le prochain "tick"
@@ -30,43 +39,12 @@ async fn main() -> Result<(), reqwest::Error> {
         println!("[{}] Found {} matches:", ts, matches.len());
 
         if !matches.is_empty() {
-            notify_telegram(&matches)
+            Telegram::notify_telegram(&telegram, &matches)
                 .await
                 .unwrap_or_else(|err| eprintln!("Error sending Telegram notification: {err}"));
         }
-        // else {
-        //     test_sending()
-        //         .await
-        //         .unwrap_or_else(|err| eprintln!("Error sending Telegram test message: {err}"));
-        // }
     }
 }
-
-async fn notify_telegram(matches: &[parser::Match]) -> Result<(), Box<dyn std::error::Error>> {
-    dotenvy::dotenv().ok();
-    let bot = Bot::from_env();
-    let chat_id: i64 = std::env::var("TELEGRAM_CHAT_ID")?.parse()?;
-
-    // let resale_matches: Vec<_> = matches.iter().filter(|m| m.is_resale).collect();
-
-    let mut message = String::from("Reventes disponibles:\n");
-    for m in matches {
-        message.push_str(&format!("- {}\n", m.title));
-    }
-
-    bot.send_message(ChatId(chat_id), message).await?;
-    Ok(())
-}
-
-// async fn test_sending() -> Result<(), Box<dyn std::error::Error>> {
-//     dotenvy::dotenv().ok();
-//     let bot = Bot::from_env();
-//     let chat_id: i64 = std::env::var("TELEGRAM_CHAT_ID")?.parse()?;
-
-//     bot.send_message(ChatId(chat_id), "Test message from Rust!")
-//         .await?;
-//     Ok(())
-// }
 // The [cfg(not(target_arch = "wasm32"))] above prevent building the tokio::main function
 // for wasm32 target, because tokio isn't compatible with wasm32.
 // If you aren't building for wasm32, you don't need that line.
