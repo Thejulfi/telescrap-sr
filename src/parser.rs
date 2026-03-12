@@ -3,11 +3,13 @@ use std::collections::HashSet;
 use scraper::{ElementRef, Html, Selector};
 
 const FILTER_STADE_ROCHELAIS_ONLY: bool = true;
+const BASE_URL: &str = "https://billetterie.staderochelais.com";
 
 #[derive(Debug, Clone)]
 pub struct Match {
     pub title: String,
     pub is_resale: bool,
+    pub url: Option<String>,
 }
 
 pub struct Parser {
@@ -23,7 +25,7 @@ impl Parser {
         let response = reqwest::get(&self.url).await?;
         let body = response.text().await?;
 
-        let matches = Self::parse_matches(&body);
+        let matches = Self::parse_matches(&body).await?;
 
         let mut sorted_matches = Vec::new();
 
@@ -35,7 +37,7 @@ impl Parser {
         Ok(sorted_matches)
     }
 
-    fn parse_matches(body: &str) -> Vec<Match> {
+    async fn parse_matches(body: &str) -> Result<Vec<Match>, reqwest::Error> {
         let mut matches = Vec::new();
 
         let document = Html::parse_document(body);
@@ -79,11 +81,25 @@ impl Parser {
                 matches.push(Match {
                     title: h3_text,
                     is_resale: is_resale_available,
+                    url: resale_action
+                        .value()
+                        .attr("href")
+                        .map(Self::build_absolute_url),
                 });
             }
         }
 
-        matches
+        Ok(matches)
+    }
+
+    fn build_absolute_url(href: &str) -> String {
+        if href.starts_with("http://") || href.starts_with("https://") {
+            href.to_string()
+        } else if href.starts_with('/') {
+            format!("{BASE_URL}{href}")
+        } else {
+            format!("{BASE_URL}/{href}")
+        }
     }
 
     fn sort_matches(matches: &[Match]) -> Result<Vec<Match>, String> {

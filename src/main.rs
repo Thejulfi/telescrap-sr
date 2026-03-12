@@ -1,6 +1,7 @@
 mod parser;
 mod telegram;
 use chrono::Local;
+use parser::Match;
 use parser::Parser;
 use telegram::Telegram;
 use tokio::time::{self, Duration};
@@ -27,6 +28,8 @@ async fn main() -> Result<(), reqwest::Error> {
 
     let parser = Parser::new(url);
 
+    let mut match_to_be_resaled: Vec<Match> = Vec::new();
+
     let mut ticker = time::interval(Duration::from_secs(PARSING_WEB_TIMEOUT_SECONDS * 60));
 
     loop {
@@ -35,14 +38,34 @@ async fn main() -> Result<(), reqwest::Error> {
 
         let matches = parser.fetch_and_parse().await?;
 
-        let ts = Local::now().format("%Y-%m-%d %H:%M:%S");
-        println!("[{}] Found {} matches:", ts, matches.len());
+        let new_matches: Vec<_> = matches
+            .iter()
+            .filter(|m| !match_to_be_resaled.iter().any(|h| h.title == m.title))
+            .cloned()
+            .collect();
 
-        if !matches.is_empty() {
-            Telegram::notify_telegram(&telegram, &matches)
+        if !new_matches.is_empty() {
+            let ts = Local::now().format("%Y-%m-%d %H:%M:%S");
+            println!("[{}] Found {} new resale match(es)", ts, new_matches.len());
+
+            Telegram::notify_telegram(&telegram, &new_matches)
                 .await
                 .unwrap_or_else(|err| eprintln!("Error sending Telegram notification: {err}"));
+        } else if !matches.is_empty() {
+            println!("No new resale matches found");
+        } else {
+            println!("No resale matches found");
         }
+
+        for removed in match_to_be_resaled
+            .iter()
+            .filter(|h| !matches.iter().any(|m| m.title == h.title))
+        {
+            println!("Match {} is no longer available for resale.", removed.title);
+        }
+
+        // Keep a snapshot of current resale matches to compute diffs on next tick.
+        match_to_be_resaled = matches.clone();
     }
 }
 // The [cfg(not(target_arch = "wasm32"))] above prevent building the tokio::main function

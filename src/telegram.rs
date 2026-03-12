@@ -43,7 +43,11 @@ impl Telegram {
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut message = String::from("Reventes disponibles:\n");
         for m in matches {
-            message.push_str(&format!("- {}\n", m.title));
+            message.push_str(&format!(
+                "- {}\nLink : {}\n",
+                m.title,
+                m.url.as_deref().unwrap_or("N/A")
+            ));
         }
 
         self.bot
