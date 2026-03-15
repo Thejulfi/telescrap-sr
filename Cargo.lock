@@ -1943,18 +1943,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sr-rugby-scrapper"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "dotenvy",
- "reqwest 0.13.2",
- "scraper",
- "teloxide",
- "tokio",
-]
-
-[[package]]
 name = "stable_deref_trait"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2072,6 +2060,18 @@ name = "takecell"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "20f34339676cdcab560c9a82300c4c2581f68b9369aedf0fae86f2ff9565ff3e"
+
+[[package]]
+name = "telescrap-sr"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "dotenvy",
+ "reqwest 0.13.2",
+ "scraper",
+ "teloxide",
+ "tokio",
+]
 
 [[package]]
 name = "teloxide"
