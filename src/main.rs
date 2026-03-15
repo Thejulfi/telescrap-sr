@@ -20,12 +20,6 @@ async fn main() -> Result<(), reqwest::Error> {
     };
 
     let telegram = Telegram::new().await;
-
-    let telegram_for_commands = telegram.clone();
-    tokio::spawn(async move {
-        telegram_for_commands.run_command_listener().await;
-    });
-
     let parser = Parser::new(url);
 
     let mut match_to_be_resaled: Vec<Match> = Vec::new();
