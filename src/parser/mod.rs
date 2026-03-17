@@ -1,6 +1,6 @@
+use regex::Regex;
+use scraper::{Html, Selector};
 use std::collections::HashSet;
-
-use scraper::{ElementRef, Html, Selector};
 
 const FILTER_STADE_ROCHELAIS_ONLY: bool = true;
 const BASE_URL: &str = "https://billetterie.staderochelais.com";
@@ -10,6 +10,7 @@ pub struct Match {
     pub title: String,
     pub is_resale: bool,
     pub url: Option<String>,
+    pub date: String,
 }
 
 pub struct Parser {
@@ -41,18 +42,32 @@ impl Parser {
         let mut matches = Vec::new();
 
         let document = Html::parse_document(body);
-        let actions_selector = Selector::parse(".actions-wrapper").unwrap();
+        let items = Selector::parse(".field__item").unwrap();
         let resale_action_selector = Selector::parse(".btn-resale").unwrap();
         let stade_link_selector =
             Selector::parse("a[href*=\"stade_rochelais\"]:not([href*=\"stade_rochelais_basket\"])")
                 .unwrap();
         let h3_selector = Selector::parse("h3.title").unwrap();
+        let date_selector = Selector::parse("a.sale-btn").unwrap();
+        let re = Regex::new(
+            r"(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)_(\d{1,2})_(\w+)_(\d{4})",
+        )
+        .unwrap();
 
-        for actions in document.select(&actions_selector) {
-            if let Some(resale_action) = actions.select(&resale_action_selector).next() {
-                if FILTER_STADE_ROCHELAIS_ONLY
-                    && actions.select(&stade_link_selector).next().is_none()
+        for item in document.select(&items) {
+            if let Some(resale_action) = item.select(&resale_action_selector).next() {
+                if FILTER_STADE_ROCHELAIS_ONLY && item.select(&stade_link_selector).next().is_none()
                 {
+                    continue;
+                }
+
+                let match_title = item
+                    .select(&h3_selector)
+                    .next()
+                    .map(|h3| h3.text().collect::<String>().trim().to_string())
+                    .unwrap_or_else(|| "H3 not found".to_string());
+
+                if matches.iter().any(|m: &Match| m.title == match_title) {
                     continue;
                 }
 
@@ -67,24 +82,29 @@ impl Parser {
                         })
                         .unwrap_or(false);
 
-                let h3_text = actions
-                    .ancestors()
-                    .filter_map(ElementRef::wrap)
-                    .find_map(|ancestor| {
-                        ancestor
-                            .select(&h3_selector)
-                            .next()
-                            .map(|h3| h3.text().collect::<String>().trim().to_string())
-                    })
-                    .unwrap_or_else(|| "H3 not found".to_string());
+                let raw_date = item
+                    .select(&date_selector)
+                    .next()
+                    .and_then(|date| date.value().attr("href"))
+                    .map(|href| href.to_string())
+                    .unwrap_or_else(|| "Date not found".to_string());
+
+                let Some(match_date) = re.captures(&raw_date) else {
+                    eprintln!("Date format not recognized: {raw_date}");
+                    continue;
+                };
 
                 matches.push(Match {
-                    title: h3_text,
+                    title: match_title,
                     is_resale: is_resale_available,
                     url: resale_action
                         .value()
                         .attr("href")
                         .map(Self::build_absolute_url),
+                    date: format!(
+                        "{} {} {} {}",
+                        &match_date[1], &match_date[2], &match_date[3], &match_date[4]
+                    ),
                 });
             }
         }

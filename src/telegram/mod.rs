@@ -55,17 +55,19 @@ impl Telegram {
         &self,
         matches: &[parser::Match],
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let mut message = String::from("Reventes disponibles:\n");
+        let mut message = String::from("Nouvelles reventes disponibles:\n\n");
         for m in matches {
             message.push_str(&format!(
-                "- {}\nLink : {}\n",
+                "🏉 <b>{}</b>\n🔗 <a href=\"{}\">Acheter</a>\n📆 : {}\n\n",
                 m.title,
-                m.url.as_deref().unwrap_or("N/A")
+                m.url.as_deref().unwrap_or("#"),
+                m.date
             ));
         }
 
         self.bot
             .send_message(ChatId(self.notifier_id), message)
+            .parse_mode(teloxide::types::ParseMode::Html)
             .await?;
         Ok(())
     }
