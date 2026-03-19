@@ -27,8 +27,7 @@ pub(in crate::telegram) fn send_parsing_command(command: ParsingCommand) -> bool
 }
 
 /// Retourne true si le parsing est actif.
-/// Visible uniquement dans ce module et ses sous-modules.
-pub(in crate::telegram) fn parsing_is_running() -> bool {
+pub fn parsing_is_running() -> bool {
     PARSING_RUNNING.load(Ordering::Relaxed)
 }
 
@@ -65,6 +64,41 @@ impl Telegram {
             ));
         }
 
+        self.bot
+            .send_message(ChatId(self.notifier_id), message)
+            .parse_mode(teloxide::types::ParseMode::Html)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn notify_calendar(
+        &self,
+        next_match: &parser::MatchDetails,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut message = String::from("<b>Prochain match :</b>\n\n");
+        message.push_str(&format!(
+            "🏉 {}\n🏆 Championnat : {}\n📆 : {}\n🕒 : {}\n\n",
+            next_match.match_title,
+            next_match.championship,
+            next_match.date_human_readable,
+            next_match
+                .hour
+                .map(|h| h.format("%H:%M").to_string())
+                .unwrap_or_else(|| "Heure non définie".to_string())
+        ));
+        self.bot
+            .send_message(ChatId(self.notifier_id), message)
+            .parse_mode(teloxide::types::ParseMode::Html)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn notify_imminent_match(
+        &self,
+        minutes_until_match: i64,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut message = String::from("<b>Le match de La Rochelle va bientôt commencer</b>\n\n");
+        message.push_str(&format!("🕒 Dans... {} minutes\n\n", minutes_until_match));
         self.bot
             .send_message(ChatId(self.notifier_id), message)
             .parse_mode(teloxide::types::ParseMode::Html)

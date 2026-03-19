@@ -1,3 +1,6 @@
+mod calendar;
+
+use chrono::prelude::*;
 use regex::Regex;
 use scraper::{Html, Selector};
 use std::collections::HashSet;
@@ -13,13 +16,46 @@ pub struct Match {
     pub date: String,
 }
 
+#[derive(Debug, Clone)]
 pub struct Parser {
     pub url: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct MatchDetails {
+    pub championship: String,
+    #[allow(dead_code)]
+    pub city: String,
+    pub date_human_readable: String,
+    #[allow(dead_code)]
+    pub date: NaiveDate,
+    pub hour: Option<NaiveTime>,
+    pub timestamp: Option<DateTime<Utc>>,
+    pub match_title: String,
 }
 
 impl Parser {
     pub fn new(url: String) -> Self {
         Parser { url }
+    }
+
+    pub async fn next_upcoming_match_from_urls(
+        &self,
+        sources: &[(&str, &str)],
+        now: DateTime<Utc>,
+    ) -> Option<MatchDetails> {
+        let mut calendars = Vec::new();
+
+        for (url, championship) in sources {
+            match calendar::parse_calendar(url, championship).await {
+                Ok(calendar) => calendars.extend(calendar),
+                Err(err) => {
+                    crate::log::error(format!("Error while parsing calendar page {url}: {err}"));
+                }
+            }
+        }
+
+        calendar::next_upcoming_match(&calendars, now).cloned()
     }
 
     pub async fn fetch_and_parse(&self) -> Result<Vec<Match>, reqwest::Error> {
@@ -112,6 +148,40 @@ impl Parser {
         Ok(matches)
     }
 
+    pub(crate) fn parse_french_time(time_str: &str) -> Option<NaiveTime> {
+        // format: "21h00"
+        NaiveTime::parse_from_str(time_str, "%Hh%M").ok()
+    }
+
+    pub(crate) fn parse_french_date(date_str: &str) -> Option<NaiveDate> {
+        let parts: Vec<&str> = date_str.split_whitespace().collect();
+        // format: "samedi 12 octobre 2024"
+        //            [0]   [1]    [2]    [3]
+        if parts.len() != 4 {
+            return None;
+        }
+
+        let day: u32 = parts[1].parse().ok()?;
+        let year: i32 = parts[3].parse().ok()?;
+        let month: u32 = match parts[2].to_lowercase().as_str() {
+            "janvier" => 1,
+            "février" => 2,
+            "mars" => 3,
+            "avril" => 4,
+            "mai" => 5,
+            "juin" => 6,
+            "juillet" => 7,
+            "août" => 8,
+            "septembre" => 9,
+            "octobre" => 10,
+            "novembre" => 11,
+            "décembre" => 12,
+            _ => return None,
+        };
+
+        NaiveDate::from_ymd_opt(year, month, day)
+    }
+
     fn build_absolute_url(href: &str) -> String {
         if href.starts_with("http://") || href.starts_with("https://") {
             href.to_string()
@@ -137,5 +207,11 @@ impl Parser {
         }
 
         Ok(sorted_matches)
+    }
+
+    pub(crate) fn date_time_to_timestamp(date: NaiveDate, hour: Option<NaiveTime>) -> i64 {
+        let time = hour.unwrap_or_else(|| NaiveTime::from_hms_opt(0, 0, 0).unwrap());
+        let naive_datetime = date.and_time(time);
+        naive_datetime.and_utc().timestamp()
     }
 }
