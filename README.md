@@ -4,17 +4,27 @@
 	<img src="doc/img/logo.png" width="150">
 </p>
 
+[![Cross-Compile and Deploy](https://github.com/Thejulfi/telescrap-sr/actions/workflows/deploy.yml/badge.svg)](https://github.com/Thejulfi/telescrap-sr/actions/workflows/deploy.yml)
+
 Script qui scan le site de la billetterie du Stade Rochelais pour détecter les places qui sont mises à la revente et notifie via Telegram.
 
 ## Roadmap
 
 - [ ] Améliorer le scrapping : mode aggressif pour permettre de mettre au panier les billets qui ont été détectés en revente.
-- [ ] Ajouter un module de log qui permet de suivre les actions du bot.
+- [x] Ajouter un module de log qui permet de suivre les actions du bot.
 - [ ] Permet de définir les intervalles de scrapping via commandes Telegram (par l'interface administrateur).
+- [ ] Ajouter la suppression automatique des messages de reventes à la fin de la semaine (ou journée)
+- [x] Prévoir des rappels de matchs au début de la semaine et au début du WE, 1h avant et au coup d'envoi.
+	- Clean la partie parsin de calendrier pour avoir tout dans le parser/calendar.rs
+- [ ] Ajouter la possibilité de fournir un lien pour suivre le match en direct
 
 ## Pourquoi ce projet ?
 
-Ce projet fournit un bot qui publie dans un groupe Telegram les billets trouvés en revente. Il est également possible de le configurer et de le superviser via un canal privé administrateur.
+Ce projet est issu d'un constat simple. Le nombre de personnes abonnées au Stade Rochelais est en constante augmentation et empêche en l'état toute nouvelle personne qui ne suit pas assidûment les matchs de pouvoir avoir accès à des billets. Heureusement, il existe une plateforme de revente, qui est cependant elle-même saturée.
+
+En créant ce bot, j'espère permettre à un plus grand nombre de personnes d'avoir accès à des billets, même si cela ne résoudra pas le problème de fond.
+
+Mon objectif en publiant ce projet est de fournir un bot qui publie dans un groupe Telegram les billets trouvés en revente. Avec ce bot, il est également possible de le configurer et de le superviser via un canal privé administrateur.
 
 ## Comment ça marche ?
 
