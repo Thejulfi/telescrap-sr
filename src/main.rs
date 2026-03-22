@@ -1,4 +1,5 @@
 mod bot;
+mod log;
 mod parser;
 mod telegram;
 

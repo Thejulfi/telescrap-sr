@@ -25,18 +25,18 @@ impl TicketsBot {
 
     pub async fn start(&mut self) {
         self.status = TicketsBotStatus::Active;
-        println!("TicketsBot started.");
+        log::info("TicketsBot started.");
 
         if let Err(err) = self.manage_bot().await {
             self.status = TicketsBotStatus::Error;
-            eprintln!("TicketsBot stopped with error: {err}");
+            log::error(format!("TicketsBot stopped with error: {err}"));
         }
     }
 
     #[allow(unused)]
     pub fn stop(&mut self) {
         self.status = TicketsBotStatus::Stopped;
-        println!("TicketsBot stopped.");
+        log::info("TicketsBot stopped.");
     }
 
     #[allow(unused)]
@@ -48,7 +48,7 @@ impl TicketsBot {
         let url = if let Some(url) = std::env::args().nth(1) {
             url
         } else {
-            println!("No CLI URL provided, using default.");
+            log::warn("No CLI URL provided, using default.");
             "https://billetterie.staderochelais.com/fr".into()
         };
 
@@ -61,7 +61,7 @@ impl TicketsBot {
         // 1. Telegram commands task
         let telegram_for_commands = Arc::clone(&telegram);
         let mut telegram_commands_task = tokio::spawn(async move {
-            println!("Bot Telegram démarré...");
+            log::info("Bot Telegram demarre...");
             Self::check_telegram_commands(&telegram_for_commands).await;
         });
 
@@ -105,18 +105,18 @@ impl TicketsBot {
 
         tokio::select! {
             _ = tokio::signal::ctrl_c() => {
-                println!("Ctrl+C reçu, arrêt du bot...");
+                log::warn("Ctrl+C recu, arret du bot...");
                 self.status = TicketsBotStatus::Stopped;
             }
 
             result = &mut telegram_commands_task => {
                 match result {
                     Ok(_) => {
-                        println!("La tâche Telegram s'est arrêtée.");
+                        log::info("La tache Telegram s'est arretee.");
                         self.status = TicketsBotStatus::Stopped;
                     }
                     Err(err) => {
-                        eprintln!("La tâche Telegram a échoué: {err}");
+                        log::error(format!("La tache Telegram a echoue: {err}"));
                         self.status = TicketsBotStatus::Error;
                     }
                 }
@@ -125,11 +125,11 @@ impl TicketsBot {
             result = &mut resale_parsing_task => {
                 match result {
                     Ok(_) => {
-                        println!("La tâche de parsing resale s'est arrêtée.");
+                        log::info("La tache de parsing resale s'est arretee.");
                         self.status = TicketsBotStatus::Stopped;
                     }
                     Err(err) => {
-                        eprintln!("La tâche de parsing resale a échoué: {err}");
+                        log::error(format!("La tache de parsing resale a echoue: {err}"));
                         self.status = TicketsBotStatus::Error;
                     }
                 }
@@ -138,11 +138,11 @@ impl TicketsBot {
             result = &mut calendar_parsing_task => {
                 match result {
                     Ok(_) => {
-                        println!("La tâche de parsing calendar s'est arrêtée.");
+                        log::info("La tache de parsing calendar s'est arretee.");
                         self.status = TicketsBotStatus::Stopped;
                     }
                     Err(err) => {
-                        eprintln!("La tâche de parsing calendar a échoué: {err}");
+                        log::error(format!("La tache de parsing calendar a echoue: {err}"));
                         self.status = TicketsBotStatus::Error;
                     }
                 }
@@ -173,7 +173,7 @@ impl TicketsBot {
         let matches = match parser.fetch_and_parse().await {
             Ok(matches) => matches,
             Err(err) => {
-                eprintln!("Error while fetching/parsing ticket page: {err}");
+                log::error(format!("Error while fetching/parsing ticket page: {err}"));
                 return;
             }
         };
@@ -185,24 +185,28 @@ impl TicketsBot {
             .collect();
 
         if !new_matches.is_empty() {
-            let ts = Local::now().format("%Y-%m-%d %H:%M:%S");
-            println!("[{}] Found {} new resale match(es)", ts, new_matches.len());
+            log::info(format!("Found {} new resale match(es)", new_matches.len()));
 
             telegram
                 .notify_telegram(&new_matches)
                 .await
-                .unwrap_or_else(|err| eprintln!("Error sending Telegram notification: {err}"));
+                .unwrap_or_else(|err| {
+                    log::error(format!("Error sending Telegram notification: {err}"))
+                });
         } else if !matches.is_empty() {
-            println!("No new resale matches found");
+            log::info("No new resale matches found");
         } else {
-            println!("No resale matches found");
+            log::info("No resale matches found");
         }
 
         for removed in match_to_be_resaled
             .iter()
             .filter(|h| !matches.iter().any(|m| m.title == h.title))
         {
-            println!("Match {} is no longer available for resale.", removed.title);
+            log::info(format!(
+                "Match {} is no longer available for resale.",
+                removed.title
+            ));
         }
     }
 

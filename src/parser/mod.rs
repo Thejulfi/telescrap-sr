@@ -67,7 +67,7 @@ impl Parser {
         let mut sorted_matches = Vec::new();
 
         sorted_matches = Self::sort_matches(&matches).unwrap_or_else(|err| {
-            eprintln!("Error sorting matches: {err}");
+            crate::log::error(format!("Error sorting matches: {err}"));
             sorted_matches
         });
 
@@ -126,7 +126,7 @@ impl Parser {
                     .unwrap_or_else(|| "Date not found".to_string());
 
                 let Some(match_date) = re.captures(&raw_date) else {
-                    eprintln!("Date format not recognized: {raw_date}");
+                    crate::log::error(format!("Date format not recognized: {raw_date}"));
                     continue;
                 };
 
