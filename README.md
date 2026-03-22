@@ -4,7 +4,7 @@
 	<img src="doc/img/logo.png" width="150">
 </p>
 
-[![Cross-Compile and Deploy](https://github.com/Thejulfi/telescrap-sr/actions/workflows/deploy.yml/badge.svg)](https://github.com/Thejulfi/telescrap-sr/actions/workflows/deploy.yml)
+[![Cross-Compile and Deploy](https://github.com/Thejulfi/telescrap-sr/actions/workflows/deploy.yml/badge.svg)](https://github.com/Thejulfi/telescrap-sr/actions/workflows/deploy.yml) [![Version](https://img.shields.io/github/v/release/Thejulfi/telescrap-sr?label=version)](https://github.com/Thejulfi/telescrap-sr/releases)
 
 Script qui scan le site de la billetterie du Stade Rochelais pour détecter les places qui sont mises à la revente et notifie via Telegram.
 
