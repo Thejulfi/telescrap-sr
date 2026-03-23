@@ -1,0 +1,14 @@
+[[calendar_sources]]
+name = "Top 14"
+url = "https://www.allrugby.com/competitions/top-14/calendrier.html"
+enabled = true
+
+[[calendar_sources]]
+name = "Challenge Cup"
+url = "https://www.allrugby.com/competitions/challenge-cup/calendrier.html"
+enabled = true
+
+[[calendar_sources]]
+name = "Champions Cup"
+url = "https://www.allrugby.com/competitions/champions-cup/calendrier.html"
+enabled = true

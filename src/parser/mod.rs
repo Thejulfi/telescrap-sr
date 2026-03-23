@@ -39,18 +39,33 @@ impl Parser {
         Parser { url }
     }
 
-    pub async fn next_upcoming_match_from_urls(
-        &self,
-        sources: &[(&str, &str)],
-        now: DateTime<Utc>,
-    ) -> Option<MatchDetails> {
+    pub async fn next_upcoming_match_from_urls(&self, now: DateTime<Utc>) -> Option<MatchDetails> {
         let mut calendars = Vec::new();
 
-        for (url, championship) in sources {
-            match calendar::parse_calendar(url, championship).await {
+        const EMBEDDED_SOURCES: &str = include_str!("link_sources.toml");
+
+        let sources = match calendar::load_config_from_str(EMBEDDED_SOURCES) {
+            Ok(config) => config
+                .calendar_sources
+                .into_iter()
+                .filter(|source| source.enabled)
+                .collect::<Vec<_>>(),
+            Err(err) => {
+                crate::log::warn(format!(
+                    "Cannot parse embedded calendar sources ({err}), skipping calendar parsing"
+                ));
+                return None;
+            }
+        };
+
+        for source in &sources {
+            match calendar::parse_calendar(&source.url, &source.name).await {
                 Ok(calendar) => calendars.extend(calendar),
                 Err(err) => {
-                    crate::log::error(format!("Error while parsing calendar page {url}: {err}"));
+                    crate::log::error(format!(
+                        "Error while parsing calendar page {}: {err}",
+                        source.url
+                    ));
                 }
             }
         }

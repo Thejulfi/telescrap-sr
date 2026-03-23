@@ -2,6 +2,24 @@ use crate::parser::{MatchDetails, Parser};
 use chrono::prelude::*;
 use scraper::CaseSensitivity;
 use scraper::{Html, Selector};
+use serde::Deserialize;
+
+#[derive(Debug, Deserialize)]
+pub struct AppConfig {
+    pub calendar_sources: Vec<CalendarSource>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct CalendarSource {
+    pub name: String,
+    pub url: String,
+    pub enabled: bool,
+}
+
+pub fn load_config_from_str(content: &str) -> Result<AppConfig, Box<dyn std::error::Error>> {
+    let cfg: AppConfig = toml::from_str(content)?;
+    Ok(cfg)
+}
 
 pub async fn get_calendar_from_url(url: &str) -> Result<String, reqwest::Error> {
     let response = reqwest::get(url).await?;

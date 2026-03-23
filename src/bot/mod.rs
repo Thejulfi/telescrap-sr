@@ -220,24 +220,10 @@ impl TicketsBot {
         last_weekly_notification_day: &mut Option<NaiveDate>,
     ) -> u64 {
         let next_check_duration = 3600;
-        let sources = [
-            (
-                "https://www.allrugby.com/competitions/top-14/calendrier.html",
-                "Top 14",
-            ),
-            (
-                "https://www.allrugby.com/competitions/challenge-cup/calendrier.html",
-                "Challenge Cup",
-            ),
-            (
-                "https://www.allrugby.com/competitions/champions-cup/calendrier.html",
-                "Champions Cup",
-            ),
-        ];
 
         // Step 1 : Get the next upcoming match by parsing the URLs
         let now = Utc::now();
-        let next_match = parser.next_upcoming_match_from_urls(&sources, now).await;
+        let next_match = parser.next_upcoming_match_from_urls(now).await;
 
         let Some(next_match) = next_match else {
             log::info("No upcoming matches found in the calendar.");
