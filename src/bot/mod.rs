@@ -1,7 +1,8 @@
 use crate::log;
-use crate::parser::{Match, Parser};
+use crate::parser::Parser;
 use crate::telegram::{ParsingCommand, Telegram};
 use chrono::prelude::*;
+use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::sync::watch;
 use tokio::time::{Duration, interval, sleep};
@@ -69,6 +70,7 @@ impl TicketsBot {
         let telegram_for_resale = Arc::clone(&telegram);
         let parser_for_resale = Arc::clone(&parser);
         let mut resale_parsing_task = tokio::spawn(async move {
+            let mut known_resale_titles: HashSet<String> = HashSet::new();
             let mut tick = interval(Duration::from_secs(
                 crate::telegram::parsing_interval_seconds(),
             ));
@@ -76,7 +78,12 @@ impl TicketsBot {
                 tokio::select! {
                     _ = tick.tick() => {
                         if crate::telegram::parsing_is_running() {
-                            Self::check_and_notifify_resale(&parser_for_resale, &telegram_for_resale).await;
+                            Self::check_and_notifify_resale(
+                                &parser_for_resale,
+                                &telegram_for_resale,
+                                &mut known_resale_titles,
+                            )
+                            .await;
                         }
                     }
                     Ok(()) = parsing_rx.changed() => {
@@ -177,9 +184,11 @@ impl TicketsBot {
         Ok(())
     }
 
-    async fn check_and_notifify_resale(parser: &Parser, telegram: &Telegram) {
-        let match_to_be_resaled: Vec<Match> = Vec::new();
-
+    async fn check_and_notifify_resale(
+        parser: &Parser,
+        telegram: &Telegram,
+        known_resale_titles: &mut HashSet<String>,
+    ) {
         let matches = match parser.fetch_and_parse().await {
             Ok(matches) => matches,
             Err(err) => {
@@ -188,9 +197,11 @@ impl TicketsBot {
             }
         };
 
+        let current_titles: HashSet<String> = matches.iter().map(|m| m.title.clone()).collect();
+
         let new_matches: Vec<_> = matches
             .iter()
-            .filter(|m| !match_to_be_resaled.iter().any(|h| h.title == m.title))
+            .filter(|m| !known_resale_titles.contains(&m.title))
             .cloned()
             .collect();
 
@@ -209,15 +220,14 @@ impl TicketsBot {
             log::info("No resale matches found");
         }
 
-        for removed in match_to_be_resaled
-            .iter()
-            .filter(|h| !matches.iter().any(|m| m.title == h.title))
-        {
+        for removed in known_resale_titles.difference(&current_titles) {
             log::info(format!(
                 "Match {} is no longer available for resale.",
-                removed.title
+                removed
             ));
         }
+
+        *known_resale_titles = current_titles;
     }
 
     async fn check_telegram_commands(telegram: &Telegram) {
