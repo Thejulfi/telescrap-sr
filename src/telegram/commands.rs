@@ -18,9 +18,9 @@ pub(super) enum Command {
     #[command(description = "Get the current status of the bot")]
     Status,
     #[command(
-        description = "Set new parsing polling interval in minutes. Usage: \"/setinterval <minutes>\""
+        description = "Set new parsing polling interval in seconds. Usage: \"/setinterval <seconds>\""
     )]
-    SetInterval,
+    SetInterval(u64),
     #[command(description = "Export logs")]
     GetLog,
 }
@@ -45,10 +45,14 @@ pub(super) async fn answer(bot: Bot, msg: Message, cmd: Command) -> ResponseResu
             } else {
                 "stopped"
             };
+            let interval_seconds = super::parsing_interval_seconds();
 
             bot.send_message(
                 msg.chat.id,
-                format!("Parsing is currently {}.", parsing_status),
+                format!(
+                    "Parsing is currently {}. Polling interval: {} second(s).",
+                    parsing_status, interval_seconds
+                ),
             )
             .await?
         }
@@ -68,7 +72,21 @@ pub(super) async fn answer(bot: Bot, msg: Message, cmd: Command) -> ResponseResu
                     .await?
             }
         }
-        Command::SetInterval => bot.send_message(msg.chat.id, "Interval set!").await?,
+        Command::SetInterval(seconds) => {
+            if seconds == 0 {
+                bot.send_message(msg.chat.id, "Interval must be greater than 0 second.")
+                    .await?
+            } else if super::send_parsing_command(ParsingCommand::SetInterval(seconds)) {
+                bot.send_message(
+                    msg.chat.id,
+                    format!("Parsing interval set to {} second(s).", seconds),
+                )
+                .await?
+            } else {
+                bot.send_message(msg.chat.id, "Unable to set parsing interval right now.")
+                    .await?
+            }
+        }
         Command::GetLog => bot.send_message(msg.chat.id, "Logs exported!").await?,
     };
 

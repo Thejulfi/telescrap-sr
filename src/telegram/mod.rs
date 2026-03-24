@@ -2,7 +2,7 @@ mod commands;
 
 use crate::parser;
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use teloxide::prelude::*;
 use tokio::sync::watch;
 
@@ -10,13 +10,14 @@ use tokio::sync::watch;
 pub enum ParsingCommand {
     Start,
     Stop,
+    SetInterval(u64),
 }
 
 static PARSING_CONTROL_TX: Mutex<Option<watch::Sender<ParsingCommand>>> = Mutex::new(None);
 static PARSING_RUNNING: AtomicBool = AtomicBool::new(true);
+const DEFAULT_PARSING_INTERVAL_SECONDS: u64 = 60;
+static PARSING_INTERVAL_SECONDS: AtomicU64 = AtomicU64::new(DEFAULT_PARSING_INTERVAL_SECONDS);
 
-/// Envoie une commande au contrôleur de parsing.
-/// Visible uniquement dans ce module et ses sous-modules.
 pub(in crate::telegram) fn send_parsing_command(command: ParsingCommand) -> bool {
     if let Ok(guard) = PARSING_CONTROL_TX.lock()
         && let Some(tx) = guard.as_ref()
@@ -26,9 +27,12 @@ pub(in crate::telegram) fn send_parsing_command(command: ParsingCommand) -> bool
     false
 }
 
-/// Retourne true si le parsing est actif.
 pub fn parsing_is_running() -> bool {
     PARSING_RUNNING.load(Ordering::Relaxed)
+}
+
+pub fn parsing_interval_seconds() -> u64 {
+    PARSING_INTERVAL_SECONDS.load(Ordering::Relaxed)
 }
 
 #[derive(Clone)]
@@ -118,6 +122,10 @@ impl Telegram {
 
     pub fn set_parsing_running(running: bool) {
         PARSING_RUNNING.store(running, Ordering::Relaxed);
+    }
+
+    pub fn set_parsing_interval_seconds(seconds: u64) {
+        PARSING_INTERVAL_SECONDS.store(seconds, Ordering::Relaxed);
     }
 
     fn parse_chat_id_from_env(var_name: &str) -> Result<i64, Box<dyn std::error::Error>> {

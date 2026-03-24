@@ -69,7 +69,9 @@ impl TicketsBot {
         let telegram_for_resale = Arc::clone(&telegram);
         let parser_for_resale = Arc::clone(&parser);
         let mut resale_parsing_task = tokio::spawn(async move {
-            let mut tick = interval(Duration::from_secs(60));
+            let mut tick = interval(Duration::from_secs(
+                crate::telegram::parsing_interval_seconds(),
+            ));
             loop {
                 tokio::select! {
                     _ = tick.tick() => {
@@ -81,6 +83,14 @@ impl TicketsBot {
                         match *parsing_rx.borrow_and_update() {
                             ParsingCommand::Start => Telegram::set_parsing_running(true),
                             ParsingCommand::Stop => Telegram::set_parsing_running(false),
+                            ParsingCommand::SetInterval(seconds) => {
+                                tick = interval(Duration::from_secs(seconds));
+                                Telegram::set_parsing_interval_seconds(seconds);
+                                log::info(format!(
+                                    "Resale parsing interval updated to {} second(s).",
+                                    seconds
+                                ));
+                            }
                         }
                     }
                 }
