@@ -23,6 +23,8 @@ pub(super) enum Command {
     SetInterval(u64),
     #[command(description = "Export logs")]
     GetLog,
+    #[command(description = "Delete N messages in the notifier channel")]
+    Delete(u64),
 }
 
 pub(super) async fn answer(bot: Bot, msg: Message, cmd: Command) -> ResponseResult<()> {
@@ -88,6 +90,28 @@ pub(super) async fn answer(bot: Bot, msg: Message, cmd: Command) -> ResponseResu
             }
         }
         Command::GetLog => bot.send_message(msg.chat.id, "Logs exported!").await?,
+        Command::Delete(n) => {
+            if n == 0 {
+                bot.send_message(msg.chat.id, "Please provide a number greater than 0.")
+                    .await?
+            } else {
+                let notifier_chat_id = match super::notifier_chat_id_from_env() {
+                    Some(chat_id) => chat_id,
+                    None => {
+                        bot.send_message(msg.chat.id, "Unable to resolve TELEGRAM_CHAT_ID.")
+                            .await?;
+                        return Ok(());
+                    }
+                };
+
+                let deleted = super::clear_last_in_chat(&bot, notifier_chat_id, n as usize).await?;
+                bot.send_message(
+                    msg.chat.id,
+                    format!("Deleted {} message(s) out of {} requested.", deleted, n),
+                )
+                .await?
+            }
+        }
     };
 
     Ok(())

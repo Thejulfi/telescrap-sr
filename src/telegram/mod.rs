@@ -1,6 +1,7 @@
 mod commands;
 
 use crate::parser;
+use std::collections::VecDeque;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use teloxide::prelude::*;
@@ -18,6 +19,9 @@ static PARSING_RUNNING: AtomicBool = AtomicBool::new(true);
 const DEFAULT_PARSING_INTERVAL_SECONDS: u64 = 60;
 static PARSING_INTERVAL_SECONDS: AtomicU64 = AtomicU64::new(DEFAULT_PARSING_INTERVAL_SECONDS);
 
+static SENT_MESSAGES: Mutex<VecDeque<teloxide::types::MessageId>> = Mutex::new(VecDeque::new());
+const MAX_TRACKED: usize = 500;
+
 pub(in crate::telegram) fn send_parsing_command(command: ParsingCommand) -> bool {
     if let Ok(guard) = PARSING_CONTROL_TX.lock()
         && let Some(tx) = guard.as_ref()
@@ -33,6 +37,13 @@ pub fn parsing_is_running() -> bool {
 
 pub fn parsing_interval_seconds() -> u64 {
     PARSING_INTERVAL_SECONDS.load(Ordering::Relaxed)
+}
+
+pub fn notifier_chat_id_from_env() -> Option<ChatId> {
+    std::env::var("TELEGRAM_CHAT_ID")
+        .ok()
+        .and_then(|raw| raw.parse::<i64>().ok())
+        .map(ChatId)
 }
 
 #[derive(Clone)]
@@ -67,11 +78,7 @@ impl Telegram {
                 m.date
             ));
         }
-
-        self.bot
-            .send_message(ChatId(self.notifier_id), message)
-            .parse_mode(teloxide::types::ParseMode::Html)
-            .await?;
+        self.send_and_track(message).await?;
         Ok(())
     }
 
@@ -90,10 +97,7 @@ impl Telegram {
                 .map(|h| h.format("%H:%M").to_string())
                 .unwrap_or_else(|| "Heure non définie".to_string())
         ));
-        self.bot
-            .send_message(ChatId(self.notifier_id), message)
-            .parse_mode(teloxide::types::ParseMode::Html)
-            .await?;
+        self.send_and_track(message).await?;
         Ok(())
     }
 
@@ -103,10 +107,7 @@ impl Telegram {
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut message = String::from("<b>Le match de La Rochelle va bientôt commencer</b>\n\n");
         message.push_str(&format!("🕒 Dans... {} minutes\n\n", minutes_until_match));
-        self.bot
-            .send_message(ChatId(self.notifier_id), message)
-            .parse_mode(teloxide::types::ParseMode::Html)
-            .await?;
+        self.send_and_track(message).await?;
         Ok(())
     }
 
@@ -131,4 +132,40 @@ impl Telegram {
     fn parse_chat_id_from_env(var_name: &str) -> Result<i64, Box<dyn std::error::Error>> {
         Ok(std::env::var(var_name)?.parse()?)
     }
+
+    async fn send_and_track(&self, text: String) -> ResponseResult<()> {
+        let sent = self
+            .bot
+            .send_message(ChatId(self.notifier_id), text)
+            .parse_mode(teloxide::types::ParseMode::Html)
+            .await?;
+        if let Ok(mut q) = SENT_MESSAGES.lock() {
+            q.push_back(sent.id);
+            while q.len() > MAX_TRACKED {
+                q.pop_front();
+            }
+        }
+        Ok(())
+    }
+}
+
+pub async fn clear_last_in_chat(bot: &Bot, chat_id: ChatId, n: usize) -> ResponseResult<usize> {
+    let mut ids = Vec::new();
+    if let Ok(mut q) = SENT_MESSAGES.lock() {
+        for _ in 0..n {
+            if let Some(id) = q.pop_back() {
+                ids.push(id);
+            } else {
+                break;
+            }
+        }
+    }
+
+    let mut deleted = 0usize;
+    for id in ids {
+        if bot.delete_message(chat_id, id).await.is_ok() {
+            deleted += 1;
+        }
+    }
+    Ok(deleted)
 }
