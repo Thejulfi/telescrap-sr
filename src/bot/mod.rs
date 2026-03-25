@@ -66,6 +66,29 @@ impl TicketsBot {
             Self::check_telegram_commands(&telegram_for_commands).await;
         });
 
+        // 3. Delete old messages task
+        let telegram_for_cleanup = Arc::clone(&telegram);
+        let mut cleanup_task = tokio::spawn(async move {
+            let mut last_cleanup_date: Option<NaiveDate> = None;
+            loop {
+                sleep(Duration::from_secs(3600)).await;
+
+                let now = Utc::now();
+                if now.weekday() == Weekday::Mon
+                    && now.hour() >= 1
+                    && last_cleanup_date != Some(now.date_naive())
+                {
+                    log::info("Starting old messages cleanup...");
+                    if let Err(err) = telegram_for_cleanup.clear_all_tracked().await {
+                        log::error(format!("Error during old messages cleanup: {err}"));
+                    } else {
+                        log::info("Old messages cleanup completed successfully.");
+                        last_cleanup_date = Some(now.date_naive());
+                    }
+                }
+            }
+        });
+
         // 2. Resale parsing task
         let telegram_for_resale = Arc::clone(&telegram);
         let parser_for_resale = Arc::clone(&parser);
@@ -139,6 +162,19 @@ impl TicketsBot {
                 }
             }
 
+            result = &mut cleanup_task => {
+                match result {
+                    Ok(_) => {
+                        log::info("La tache de nettoyage s'est arretee.");
+                        // Note: we don't change the status to Stopped here because this task is designed to run indefinitely in the background, and its stop is not a normal stop condition for the bot.
+                    }
+                    Err(err) => {
+                        log::error(format!("La tache de nettoyage a echoue: {err}"));
+                        // Note: we don't change the status to Error here because even if the cleanup task fails, it doesn't necessarily mean that the whole bot is in an error state. We can still continue running and serving commands and notifications.
+                    }
+                }
+            }
+
             result = &mut resale_parsing_task => {
                 match result {
                     Ok(_) => {
@@ -169,6 +205,11 @@ impl TicketsBot {
         if !telegram_commands_task.is_finished() {
             telegram_commands_task.abort();
             let _ = telegram_commands_task.await;
+        }
+
+        if !cleanup_task.is_finished() {
+            cleanup_task.abort();
+            let _ = cleanup_task.await;
         }
 
         if !resale_parsing_task.is_finished() {

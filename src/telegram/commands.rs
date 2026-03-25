@@ -104,7 +104,8 @@ pub(super) async fn answer(bot: Bot, msg: Message, cmd: Command) -> ResponseResu
                     }
                 };
 
-                let deleted = super::clear_last_in_chat(&bot, notifier_chat_id, n as usize).await?;
+                let deleted =
+                    super::clear_last_in_chat(&bot, notifier_chat_id, Some(n as usize)).await?;
                 bot.send_message(
                     msg.chat.id,
                     format!("Deleted {} message(s) out of {} requested.", deleted, n),

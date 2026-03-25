@@ -147,16 +147,33 @@ impl Telegram {
         }
         Ok(())
     }
+
+    pub async fn clear_all_tracked(&self) -> ResponseResult<usize> {
+        clear_last_in_chat(&self.bot, ChatId(self.notifier_id), None).await
+    }
 }
 
-pub async fn clear_last_in_chat(bot: &Bot, chat_id: ChatId, n: usize) -> ResponseResult<usize> {
+pub async fn clear_last_in_chat(
+    bot: &Bot,
+    chat_id: ChatId,
+    n: Option<usize>,
+) -> ResponseResult<usize> {
     let mut ids = Vec::new();
     if let Ok(mut q) = SENT_MESSAGES.lock() {
-        for _ in 0..n {
-            if let Some(id) = q.pop_back() {
-                ids.push(id);
-            } else {
-                break;
+        match n {
+            Some(count) => {
+                for _ in 0..count {
+                    if let Some(id) = q.pop_back() {
+                        ids.push(id);
+                    } else {
+                        break;
+                    }
+                }
+            }
+            None => {
+                while let Some(id) = q.pop_back() {
+                    ids.push(id);
+                }
             }
         }
     }
