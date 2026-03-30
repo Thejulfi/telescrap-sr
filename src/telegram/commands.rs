@@ -18,11 +18,13 @@ pub(super) enum Command {
     #[command(description = "Get the current status of the bot")]
     Status,
     #[command(
-        description = "Set new parsing polling interval in minutes. Usage: \"/setinterval <minutes>\""
+        description = "Set new parsing polling interval in seconds. Usage: \"/setinterval <seconds>\""
     )]
-    SetInterval,
+    SetInterval(u64),
     #[command(description = "Export logs")]
     GetLog,
+    #[command(description = "Delete N messages in the notifier channel")]
+    Delete(u64),
 }
 
 pub(super) async fn answer(bot: Bot, msg: Message, cmd: Command) -> ResponseResult<()> {
@@ -45,10 +47,14 @@ pub(super) async fn answer(bot: Bot, msg: Message, cmd: Command) -> ResponseResu
             } else {
                 "stopped"
             };
+            let interval_seconds = super::parsing_interval_seconds();
 
             bot.send_message(
                 msg.chat.id,
-                format!("Parsing is currently {}.", parsing_status),
+                format!(
+                    "Parsing is currently {}. Polling interval: {} second(s).",
+                    parsing_status, interval_seconds
+                ),
             )
             .await?
         }
@@ -68,8 +74,45 @@ pub(super) async fn answer(bot: Bot, msg: Message, cmd: Command) -> ResponseResu
                     .await?
             }
         }
-        Command::SetInterval => bot.send_message(msg.chat.id, "Interval set!").await?,
+        Command::SetInterval(seconds) => {
+            if seconds == 0 {
+                bot.send_message(msg.chat.id, "Interval must be greater than 0 second.")
+                    .await?
+            } else if super::send_parsing_command(ParsingCommand::SetInterval(seconds)) {
+                bot.send_message(
+                    msg.chat.id,
+                    format!("Parsing interval set to {} second(s).", seconds),
+                )
+                .await?
+            } else {
+                bot.send_message(msg.chat.id, "Unable to set parsing interval right now.")
+                    .await?
+            }
+        }
         Command::GetLog => bot.send_message(msg.chat.id, "Logs exported!").await?,
+        Command::Delete(n) => {
+            if n == 0 {
+                bot.send_message(msg.chat.id, "Please provide a number greater than 0.")
+                    .await?
+            } else {
+                let notifier_chat_id = match super::notifier_chat_id_from_env() {
+                    Some(chat_id) => chat_id,
+                    None => {
+                        bot.send_message(msg.chat.id, "Unable to resolve TELEGRAM_CHAT_ID.")
+                            .await?;
+                        return Ok(());
+                    }
+                };
+
+                let deleted =
+                    super::clear_last_in_chat(&bot, notifier_chat_id, Some(n as usize)).await?;
+                bot.send_message(
+                    msg.chat.id,
+                    format!("Deleted {} message(s) out of {} requested.", deleted, n),
+                )
+                .await?
+            }
+        }
     };
 
     Ok(())

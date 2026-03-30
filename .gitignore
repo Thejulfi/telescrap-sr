@@ -3,3 +3,5 @@ babyfoot-rs/players.json
 babyfoot-rs/game_history.json
 .env
 target
+.DS_Store
+log.txt

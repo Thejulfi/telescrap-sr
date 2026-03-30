@@ -6,8 +6,10 @@ edition = "2024"
 [dependencies]
 chrono = { version = "0.4", features = ["clock"] }
 dotenvy = "0.15.7"
+regex = "1.12.3"
 reqwest = "0.13.2"
 scraper = "0.25.0"
+serde = { version = "1", features = ["derive"] }
 teloxide = { version = "0.17.0", default-features = false, features = ["macros", "rustls", "ctrlc_handler"] }
 tokio = { version = "1", features = ["full"] }
-
+toml = "1.1.0"
