@@ -12,11 +12,13 @@ Script qui scan le site de la billetterie du Stade Rochelais pour détecter les 
 
 - [ ] Améliorer le scrapping : mode aggressif pour permettre de mettre au panier les billets qui ont été détectés en revente.
 - [x] Ajouter un module de log qui permet de suivre les actions du bot.
-- [ ] Permet de définir les intervalles de scrapping via commandes Telegram (par l'interface administrateur).
-- [ ] Ajouter la suppression automatique des messages de reventes à la fin de la semaine (ou journée)
+- [x] Permet de définir les intervalles de scrapping via commandes Telegram (par l'interface administrateur).
+- [x] Ajouter la suppression automatique des messages de reventes à la fin de la semaine (ou journée)
+	- [ ] Enregistrer les messages envoyés dans une base de données locale pour permettre de les supprimer plus tard, même si le bot a été redémarré entre temps.
+		- Peut être qu'on pourrait déclencher ce comportement quand utilisation deu ctrl + c pour arrêter le bot par l'utilisateur.
 - [x] Prévoir des rappels de matchs au début de la semaine et au début du WE, 1h avant et au coup d'envoi.
-	- Clean la partie parsin de calendrier pour avoir tout dans le parser/calendar.rs
 - [ ] Ajouter la possibilité de fournir un lien pour suivre le match en direct
+- [ ] Faire un portail web pour faciliter les configurations et la supervision du bot.
 
 ## Pourquoi ce projet ?
 
