@@ -5,3 +5,4 @@ babyfoot-rs/game_history.json
 target
 .DS_Store
 log.txt
+crates/parser/temp

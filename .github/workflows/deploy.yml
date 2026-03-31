@@ -1,7 +1,7 @@
 name: Cross-Compile and Deploy
 on:
   push:
-    branches: [ main, dev/jfi ]
+    branches: [ main ]
 
 jobs:
   build-linux-arm64:
