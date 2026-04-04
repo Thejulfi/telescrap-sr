@@ -1,4 +1,3 @@
-use scanner::core::scan::ScanConfig;
 use scanner::interface::runner::ScannerHandle;
 use telegram_notifier::TelegramNotifier;
 
@@ -13,16 +12,11 @@ async fn main() {
         .parse()
         .expect("TELEGRAM_CHAT_ID doit être un entier");
 
-    let scan_config = ScanConfig::new(
-        60,
-        parser::core::club::Club::new(
-            "Stade Rochelais".to_string(),
-            parser::core::club::ClubType::StadeRochelais,
-            "https://billetterie.staderochelais.com/fr".to_string(),
-        ),
-    );
-
+    // Telegram notifier configuration with environment variables
     let notifier = TelegramNotifier::new(bot_token, chat_id);
+    // Scanner configuration (interval, club, match type, filters)
+    let scan_config = ScannerHandle::configure();
+    // Start the scanner with the specified configuration and notifier
     let _handle = ScannerHandle::start(scan_config, notifier);
 
     tokio::signal::ctrl_c().await.unwrap();
