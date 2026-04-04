@@ -23,7 +23,7 @@ use crate::app::clubs::{
     }
 };
 
-use crate::interface::curl::web::WebClient;
+use crate::interface::curl::web::{WebClient, connect_and_add_to_cart};
 
 /// Fetches all La Rochelle matches, optionally filtered by match nature.
 ///
@@ -32,7 +32,7 @@ use crate::interface::curl::web::WebClient;
 pub fn get_matches_from_type_and_club(match_type: Option<MatchNature>, club: Option<Club>) -> Vec<Encounter> {
     // default club is la rochelle
     let club = club.unwrap_or_else(|| Club::new("Stade Rochelais".to_string(), crate::core::club::ClubType::StadeRochelais, "https://billetterie.staderochelais.com/fr".to_string()));
-    let client = WebClient;
+    let client = WebClient::new();
     get_matches(&club, &client, match_type)
 }
 
@@ -41,7 +41,7 @@ pub fn get_matches_from_type_and_club(match_type: Option<MatchNature>, club: Opt
 /// # Arguments
 /// * `matches` - The list of encounters to retrieve seats for
 pub fn get_seats_from_match(matches: Vec<Encounter>) -> Vec<Seat> {
-    let client = WebClient;
+    let client = WebClient::new();
     get_seats(matches, &client)
 
 }
@@ -51,14 +51,14 @@ pub fn get_seats_from_match(matches: Vec<Encounter>) -> Vec<Seat> {
 /// # Arguments
 /// * `encounter` - The match to retrieve seats for
 pub fn get_seat_by_match(encounter: Encounter) -> Vec<Seat> {
-    let client = WebClient;
+    let client = WebClient::new();
     get_seats(vec![encounter], &client)
 }
 
 /// Fetches all available seats for all available rugby matches
 ///
 pub fn get_seats_from_rugby_matches(club: Option<Club>) -> Vec<Encounter> {
-    let client = WebClient;
+    let client = WebClient::new();
     let matches = get_matches_from_type_and_club(Some(MatchNature::Rugby), club);
     get_encounters_with_seats(matches, &client)
 }
@@ -66,7 +66,7 @@ pub fn get_seats_from_rugby_matches(club: Option<Club>) -> Vec<Encounter> {
 /// Fetches all available seats for all available basketball matches
 ///
 pub fn get_seats_from_basketball_matches(club: Option<Club>) -> Vec<Encounter> {
-    let client = WebClient;
+    let client = WebClient::new();
     let matches = get_matches_from_type_and_club(Some(MatchNature::Basketball), club);
     get_encounters_with_seats(matches, &client)
 }
@@ -77,13 +77,24 @@ pub fn get_seats_from_basketball_matches(club: Option<Club>) -> Vec<Encounter> {
 /// * `match_type` - Optional filter to return only matches of a specific nature
 /// * `club` - Optional filter to return only matches for a specific club
 pub fn get_seats_from_type_and_club(match_type: Option<MatchNature>, club: Option<Club>) -> Vec<Encounter> {
-    let client = WebClient;
+    let client = WebClient::new();
     let matches = get_matches_from_type_and_club(match_type, club);
     get_encounters_with_seats(matches, &client)
 }
 
+/// Connects to the shop with the given seat information and adds it to the cart.
+/// 
+/// # Arguments
+/// * `seat` - The seat to add to the cart
+/// # Returns
+/// Ok(()) if the seat was successfully added to the cart, Err(String) with an
+/// error message if there was an issue during the process
+pub fn connect_and_add_seat_to_cart(email: String, password: String, seat: Seat) -> Result<(), Box<dyn std::error::Error>> {
+    connect_and_add_to_cart(&email, &password, &seat.actions)
+}
+
 // fn add_to_cart(action: &SeatAction) -> Result<(), String> {
-//     let client = WebClient;
+//     let client = WebClient::new();
 //     client.add_to_cart(action)
 // }
 

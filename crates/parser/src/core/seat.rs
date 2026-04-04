@@ -7,6 +7,7 @@ pub struct SeatAction {
     pub price_max: String,
     pub libraries: String,
     pub form_build_id: String,
+    pub form_token: String,
 }
 
 #[derive(Debug, Clone)]

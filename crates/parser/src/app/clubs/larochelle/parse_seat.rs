@@ -42,6 +42,7 @@ struct PageContext {
     price_min: String,
     price_max: String,
     form_build_id: String,
+    form_token: String,
 }
 
 fn extract_page_context(document: &Html) -> Option<PageContext> {
@@ -66,7 +67,15 @@ fn extract_page_context(document: &Html) -> Option<PageContext> {
         .unwrap_or("")
         .to_string();
 
-    Some(PageContext { ajax_url, libraries, price_min, price_max, form_build_id })
+    let form_token_selector = Selector::parse("input[name='form_token']").unwrap();
+    let form_token = document
+        .select(&form_token_selector)
+        .next()
+        .and_then(|el| el.value().attr("value"))
+        .unwrap_or("")
+        .to_string();
+
+    Some(PageContext { ajax_url, libraries, price_min, price_max, form_build_id, form_token })
 }
 
 pub fn parse_seat(html: &str, _encounter: Encounter) -> Vec<Seat> {
@@ -108,6 +117,7 @@ pub fn parse_seat(html: &str, _encounter: Encounter) -> Vec<Seat> {
                 price_max: context.as_ref().map(|c| c.price_max.clone()).unwrap_or_default(),
                 libraries: context.as_ref().map(|c| c.libraries.clone()).unwrap_or_default(),
                 form_build_id: context.as_ref().map(|c| c.form_build_id.clone()).unwrap_or_default(),
+                form_token: context.as_ref().map(|c| c.form_token.clone()).unwrap_or_default(),
             };
 
             seats.push(Seat {
