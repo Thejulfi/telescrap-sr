@@ -3,9 +3,17 @@ use parser::core::encounter::Encounter;
 use std::time::SystemTime;
 
 #[derive(Debug, Clone)]
+pub struct ScanFilter {
+    pub price_threshold: Option<f64>,
+    pub date_range: Option<(String, String)>,
+    pub position: Option<String>,
+}
+
+#[derive(Debug, Clone)]
 pub struct ScanConfig {
     pub interval: u64,
     pub club: Club,
+    pub filter: Option<ScanFilter>,
 }
 
 #[derive(Debug, Clone)]
@@ -16,7 +24,7 @@ pub struct ScanResult {
 
 impl ScanConfig {
     pub fn new(interval: u64, club: Club) -> Self {
-        Self { interval, club }
+        Self { interval, club, filter: None }
     }
 }
 
