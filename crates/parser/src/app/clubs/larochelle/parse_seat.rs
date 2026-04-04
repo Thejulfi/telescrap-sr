@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use scraper::{Html, Selector};
 use serde::Deserialize;
-use crate::core::seat::{Seat, SeatAction};
+use crate::core::seat::{Seat, SeatAction, SeatInfo, SeatComposition};
 use crate::core::encounter::Encounter;
 use crate::app::clubs::parsers::ParseSeat;
 
@@ -121,7 +121,12 @@ pub fn parse_seat(html: &str, _encounter: Encounter) -> Vec<Seat> {
             };
 
             seats.push(Seat {
-                seat_info: if seat_text.is_empty() { None } else { Some(seat_text) },
+                seat_info: if seat_text.is_empty() { None } else {
+                    Some(SeatInfo {
+                        full_name: seat_text.clone(),
+                        composition: get_seat_composition(&seat_text.to_string()),
+                    })
+                },
                 price: Some(pack.amount_by_ticket.clone()),
                 actions,
             });
@@ -129,6 +134,25 @@ pub fn parse_seat(html: &str, _encounter: Encounter) -> Vec<Seat> {
     }
 
     seats
+}
+
+fn get_seat_composition(seat_info: &str) -> SeatComposition {
+    let parts: Vec<&str> = seat_info.split('•').map(|s| s.trim()).collect();
+    let mut composition = SeatComposition { access: "".to_string(), row: "".to_string(), seat_number: 0 };
+
+    for part in parts {
+        if part.starts_with("Accès") {
+            composition.access = part.replacen("Accès", "", 1).trim().to_string();
+        } else if part.starts_with("Rang") {
+            composition.row = part.replacen("Rang", "", 1).trim().to_string();
+        } else if part.starts_with("Siège") {
+            if let Ok(num) = part.replacen("Siège", "", 1).trim().parse::<u64>() {
+                composition.seat_number = num;
+            }
+        }
+    }
+
+    composition
 }
 
 impl ParseSeat for LarochellSeatParser {

@@ -1,4 +1,17 @@
 #[derive(Debug, Clone)]
+pub struct SeatComposition {
+    pub access: String,
+    pub row: String,
+    pub seat_number: u64,
+}
+
+#[derive(Debug, Clone)]
+pub struct SeatInfo {
+    pub full_name: String,
+    pub composition: SeatComposition,
+}
+
+#[derive(Debug, Clone)]
 pub struct SeatAction {
     pub pack_id: String,
     pub ticket_id: String,
@@ -12,7 +25,7 @@ pub struct SeatAction {
 
 #[derive(Debug, Clone)]
 pub struct Seat {
-    pub seat_info: Option<String>,
+    pub seat_info: Option<SeatInfo>,
     pub price: Option<String>,
     pub actions: SeatAction,
 }
