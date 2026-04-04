@@ -47,6 +47,8 @@ impl<N: Notify> ScanTask<N> {
             let changed = self.apply_side_by_side_filter(changed);
             // Apply price filter if enabled
             let changed = self.apply_price_filter(changed);
+            // Apply seat position filter if enabled
+            let changed = self.apply_position_filter(changed);
 
             if changed.is_empty() {
                 if self.previous.is_some() {
@@ -60,6 +62,38 @@ impl<N: Notify> ScanTask<N> {
 
             self.previous = Some(scan_result);
         }
+    }
+
+    fn apply_position_filter(&self, changed: Vec<DiffResult>) -> Vec<DiffResult> {
+        let pos_filter = match self.config.filter.as_ref().and_then(|f| f.position.clone()) {
+            Some(p) => p,
+            None => return changed,
+        };
+
+        changed.into_iter()
+            .filter_map(|mut result| {
+                let seats = match result.encounter_diff_only.seats.take() {
+                    Some(s) if !s.is_empty() => s,
+                    _ => return None,
+                };
+
+                let filtered: Vec<_> = seats.into_iter()
+                    .filter(|s| s.seat_info.as_ref().map_or(false, |info| {
+                        let c = &info.composition;
+                        (pos_filter.category.is_empty() || c.category.to_lowercase().contains(&pos_filter.category.to_lowercase()))
+                            && (pos_filter.access.is_empty() || c.access.to_lowercase().contains(&pos_filter.access.to_lowercase()))
+                            && (pos_filter.row.is_empty() || c.row.to_lowercase() == pos_filter.row.to_lowercase())
+                    }))
+                    .collect();
+
+                if filtered.is_empty() {
+                    None
+                } else {
+                    result.encounter_diff_only.seats = Some(filtered);
+                    Some(result)
+                }
+            })
+            .collect()
     }
 
     fn apply_price_filter(&self, changed: Vec<DiffResult>) -> Vec<DiffResult> {

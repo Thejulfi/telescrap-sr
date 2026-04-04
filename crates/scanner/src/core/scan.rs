@@ -1,6 +1,7 @@
 use parser::core::club::Club;
 use parser::core::encounter::{Encounter, MatchNature};
 use std::time::SystemTime;
+use parser::core::seat::SeatComposition;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ScanMode {
@@ -12,7 +13,7 @@ pub enum ScanMode {
 pub struct ScanFilter {
     pub price_threshold: Option<f64>,
     pub date_range: Option<(String, String)>,
-    pub position: Option<String>,
+    pub position: Option<SeatComposition>,
     pub side_by_side: Option<u64>,
 }
 
