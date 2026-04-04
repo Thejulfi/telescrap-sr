@@ -1,5 +1,6 @@
 use scanner::controller::notify::Notify;
 use teloxide::prelude::*;
+use teloxide::types::ParseMode;
 
 pub struct TelegramNotifier {
     bot_token: String,
@@ -19,7 +20,7 @@ impl Notify for TelegramNotifier {
         let message = message.to_string();
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
-                bot.send_message(chat_id, message).await.ok();
+                bot.send_message(chat_id, message).parse_mode(ParseMode::Html).await.ok();
             });
         });
     }
