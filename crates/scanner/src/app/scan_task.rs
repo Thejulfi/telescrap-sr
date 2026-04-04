@@ -1,8 +1,8 @@
 
 use tokio::time::{interval, Duration};
-use crate::core::scan::{ScanConfig, ScanResult};
+use crate::core::scan::{ScanConfig, ScanResult, ScanMode};
 use crate::controller::notify::Notify;
-use crate::app::diff::diff;
+use crate::app::diff::{diff, DiffResult, DiffType};
 use parser::interface::match_manager;
 
 pub struct ScanTask<N: Notify> {
@@ -21,8 +21,13 @@ impl<N: Notify> ScanTask<N> {
         loop {
             ticker.tick().await;
             let club = self.config.club.clone();
+            let has_filter = self.config.filter.is_some();
+            let is_aggressive = self.config.mode == ScanMode::AggressiveScan;
             let scan_result = tokio::task::spawn_blocking(move || {
-                let encounters = match_manager::get_seats_from_rugby_matches(Some(club));
+                let encounters = match_manager::get_seats_from_basketball_matches(Some(club));
+                if has_filter && is_aggressive {
+                    println!("⚠️  Mode agressif activé, mise au panier en automatique des sièges disponibles");
+                }
                 ScanResult::new(encounters)
             })
             .await
@@ -38,9 +43,9 @@ impl<N: Notify> ScanTask<N> {
                 }
             } else {
                 // First iteration: notify if at least one seat is available
-                let encounters_with_seats: Vec<_> = scan_result.encounters.iter()
+                let encounters_with_seats: Vec<DiffResult> = scan_result.encounters.iter()
                     .filter(|e| e.seats.as_ref().map_or(false, |s| !s.is_empty()))
-                    .cloned()
+                    .map(|e| DiffResult { diff_type: DiffType::NewSeats, encounter_diff_only: e.clone() })
                     .collect();
                 if !encounters_with_seats.is_empty() {
                     self.notify_parsed_info(&scan_result, &encounters_with_seats);
@@ -53,7 +58,7 @@ impl<N: Notify> ScanTask<N> {
         }
     }
 
-    fn notify_parsed_info(&self, scan_result: &ScanResult, changed: &[parser::core::encounter::Encounter]) {
+    fn notify_parsed_info(&self, scan_result: &ScanResult, changed: &[DiffResult]) {
         println!("Scanned at: {:?}", scan_result.scanned_at);
 
         let scanned_at_str = self.get_scanner_time_str(scan_result);
@@ -64,7 +69,13 @@ impl<N: Notify> ScanTask<N> {
             scanned_at_str,
         );
 
-        for encounter in changed {
+        for result in changed {
+            let encounter = &result.encounter_diff_only;
+            let (status_icon, status_label) = match result.diff_type {
+                DiffType::NewSeats => ("🟢", "Nouveaux sièges"),
+                DiffType::RemovedSeats => ("🔴", "Sièges retirés"),
+            };
+
             let seat_list = match &encounter.seats {
                 Some(seats) if !seats.is_empty() => seats
                     .iter()
@@ -84,8 +95,8 @@ impl<N: Notify> ScanTask<N> {
             };
 
             message.push_str(&format!(
-                "\n\n━━━━━━━━━━━━━━━━\n\n🆚 <b>{}</b>\n📅 <i>{}</i>\n\n🎟 <b>Places disponibles :</b>\n\n{}{}",
-                encounter.title, encounter.date, seat_list, resale,
+                "\n\n━━━━━━━━━━━━━━━━\n\n🆚 <b>{}</b>\n📅 <i>{}</i>\n\n{} <b>{} :</b>\n\n{}{}",
+                encounter.title, encounter.date, status_icon, status_label, seat_list, resale,
             ));
         }
 

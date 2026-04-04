@@ -2,6 +2,12 @@ use parser::core::club::Club;
 use parser::core::encounter::Encounter;
 use std::time::SystemTime;
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum ScanMode {
+    PassiveScan,
+    AggressiveScan,
+}
+
 #[derive(Debug, Clone)]
 pub struct ScanFilter {
     pub price_threshold: Option<f64>,
@@ -11,6 +17,7 @@ pub struct ScanFilter {
 
 #[derive(Debug, Clone)]
 pub struct ScanConfig {
+    pub mode: ScanMode,
     pub interval: u64,
     pub club: Club,
     pub filter: Option<ScanFilter>,
@@ -23,8 +30,8 @@ pub struct ScanResult {
 }
 
 impl ScanConfig {
-    pub fn new(interval: u64, club: Club) -> Self {
-        Self { interval, club, filter: None }
+    pub fn new(mode: ScanMode, interval: u64, club: Club, filter: Option<ScanFilter>) -> Self {
+        Self { mode, interval, club, filter }
     }
 }
 
