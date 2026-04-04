@@ -6,46 +6,43 @@
 
 [![Cross-Compile and Deploy](https://github.com/Thejulfi/telescrap-sr/actions/workflows/deploy.yml/badge.svg)](https://github.com/Thejulfi/telescrap-sr/actions/workflows/deploy.yml) [![Version](https://img.shields.io/github/v/release/Thejulfi/telescrap-sr?label=version)](https://github.com/Thejulfi/telescrap-sr/releases)
 
-Script qui scan le site de la billetterie du Stade Rochelais pour détecter les places qui sont mises à la revente et notifie via Telegram.
+Scraping tool to get notification for resale ticket, currently implemented for Stade Rochelais rugby matches.
 
 ## Roadmap
 
-- [ ] Améliorer le scrapping : mode aggressif pour permettre de mettre au panier les billets qui ont été détectés en revente.
-- [x] Ajouter un module de log qui permet de suivre les actions du bot.
-- [x] Permet de définir les intervalles de scrapping via commandes Telegram (par l'interface administrateur).
-- [x] Ajouter la suppression automatique des messages de reventes à la fin de la semaine (ou journée)
-	- [ ] Enregistrer les messages envoyés dans une base de données locale pour permettre de les supprimer plus tard, même si le bot a été redémarré entre temps.
-		- Peut être qu'on pourrait déclencher ce comportement quand utilisation deu ctrl + c pour arrêter le bot par l'utilisateur.
-- [x] Prévoir des rappels de matchs au début de la semaine et au début du WE, 1h avant et au coup d'envoi.
-- [ ] Ajouter la possibilité de fournir un lien pour suivre le match en direct
-- [ ] Faire un portail web pour faciliter les configurations et la supervision du bot.
+- [ ] Publish overview of the seat that is available for sale
+- [ ] Filters to only get notified for specific : 
+	- [ ] Match
+	- [ ] Seat location
+	- [ ] Price range
+- [ ] Aggressive mode that add to cart matches corresponding to the filters and notify the user only if the purchase is successful
+- [ ] Admin panel to manage the bot (Telegram private channel or web interface)
 
-## Pourquoi ce projet ?
+## Why this project ?
 
-Ce projet est issu d'un constat simple. Le nombre de personnes abonnées au Stade Rochelais est en constante augmentation et empêche en l'état toute nouvelle personne qui ne suit pas assidûment les matchs de pouvoir avoir accès à des billets. Heureusement, il existe une plateforme de revente, qui est cependant elle-même saturée.
+This is a project born from a simple observation. The number of people subscribed to well known rugby clubs is constantly increasing and prevents in its current state any new person who does not follow the matches closely from being able to access tickets. Fortunately, there is a resale platform, which is however itself saturated.
 
-En créant ce bot, j'espère permettre à un plus grand nombre de personnes d'avoir accès à des billets, même si cela ne résoudra pas le problème de fond.
+By creating this bot, I wanted to give everyone the opportunity to access tickets for the matches of their favorite club, even if they are not subscribed to the club's news or do not have the time to check the resale platform regularly.
 
-Mon objectif en publiant ce projet est de fournir un bot qui publie dans un groupe Telegram les billets trouvés en revente. Avec ce bot, il est également possible de le configurer et de le superviser via un canal privé administrateur.
+The current ticket resale platforms are not designed to be easily accessible to everyone, and often require a lot of time and effort to find the right tickets. By automating this process, I hope to make it easier for everyone to access tickets for their favorite matches.
 
-## Comment ça marche ?
+## How does it work?
 
-Le bot analyse la page d'accueil de la billetterie, filtre les mentions liées au Stade Rochelais, puis détecte les boutons de revente. En cas de changement, il notifie les utilisateurs du canal avec un lien permettant d'acheter les billets.
+The bot analyzes the homepage of the ticketing site, looking for the matches that are currently resaling tickets. When it finds a match, it checks if the tickets are available for resale and if they are, it sends a notification to the Telegram channel with the details of the match and the price of the tickets.
 
 ## Configuration
 
-1. Créer un bot Telegram et récupérer son token (voir [cette documentation](https://core.telegram.org/bots#6-botfather)).
+1. Create a Telegram bot and get its token (see [this documentation](https://core.telegram.org/bots#6-botfather)).
 
-2. Récupérer votre chat ID Telegram (voir [cette documentation](https://stackoverflow.com/a/32464976)).
+2. Get your Telegram chat ID (see [this documentation](https://stackoverflow.com/questions/32423837/telegram-bot-how-to-get-a-group-chat-id)).
 
-3. Créer un fichier `.env` à la racine du projet avec les variables d'environnement suivantes :
+3. Create a `.env` file at the root of the project with the following environment variables:
 ```
-TELOXIDE_TOKEN=your_bot_token_here
+TELEGRAM_BOT_TOKEN=your_bot_token_here
 TELEGRAM_CHAT_ID=your_channel_chat_id_here
-TELEGRAM_ADMIN_CHAT_IDS=your_admin_chat_id_here
 ```
 
-## 🚨 Canal de revente Telegram 🚨
+## 🚨 Telegram Resale Channel 🚨
 
-Le bot est actuellement actif sur un canal de revente privé, accessible uniquement sur ajout manuel.
-Vous pouvez demander l'accès en contactant l'administrateur du projet en message privé.
+The bot is currently active on a private resale channel, accessible only by manual addition.
+You can request access by contacting the project administrator via private message.

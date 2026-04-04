@@ -1,0 +1,11 @@
+[package]
+name = "telegram-notifier"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+scanner = { path = "../scanner" }
+parser = { path = "../parser" }
+teloxide = { version = "0.13", features = ["macros"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+dotenv = "0.15"
