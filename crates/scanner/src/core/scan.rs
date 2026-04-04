@@ -1,5 +1,5 @@
 use parser::core::club::Club;
-use parser::core::encounter::Encounter;
+use parser::core::encounter::{Encounter, MatchNature};
 use std::time::SystemTime;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -21,6 +21,7 @@ pub struct ScanConfig {
     pub mode: ScanMode,
     pub interval: u64,
     pub club: Club,
+    pub nature: MatchNature,
     pub filter: Option<ScanFilter>,
 }
 
@@ -31,8 +32,8 @@ pub struct ScanResult {
 }
 
 impl ScanConfig {
-    pub fn new(mode: ScanMode, interval: u64, club: Club, filter: Option<ScanFilter>) -> Self {
-        Self { mode, interval, club, filter }
+    pub fn new(mode: ScanMode, interval: u64, club: Club, nature: MatchNature, filter: Option<ScanFilter>) -> Self {
+        Self { mode, interval, club, nature, filter }
     }
 }
 

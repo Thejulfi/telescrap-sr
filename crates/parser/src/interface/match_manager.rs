@@ -57,17 +57,9 @@ pub fn get_seat_by_match(encounter: Encounter) -> Vec<Seat> {
 
 /// Fetches all available seats for all available rugby matches
 ///
-pub fn get_seats_from_rugby_matches(club: Option<Club>) -> Vec<Encounter> {
+pub fn get_seats_from_matches(club: Option<Club>, match_type: Option<MatchNature>) -> Vec<Encounter> {
     let client = WebClient::new();
-    let matches = get_matches_from_type_and_club(Some(MatchNature::Rugby), club);
-    get_encounters_with_seats(matches, &client)
-}
-
-/// Fetches all available seats for all available basketball matches
-///
-pub fn get_seats_from_basketball_matches(club: Option<Club>) -> Vec<Encounter> {
-    let client = WebClient::new();
-    let matches = get_matches_from_type_and_club(Some(MatchNature::Basketball), club);
+    let matches = get_matches_from_type_and_club(match_type, club);
     get_encounters_with_seats(matches, &client)
 }
 

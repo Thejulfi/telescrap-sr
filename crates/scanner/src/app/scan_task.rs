@@ -24,7 +24,7 @@ impl<N: Notify> ScanTask<N> {
             let has_filter = self.config.filter.is_some();
             let is_aggressive = self.config.mode == ScanMode::AggressiveScan;
             let scan_result = tokio::task::spawn_blocking(move || {
-                let encounters = match_manager::get_seats_from_basketball_matches(Some(club));
+                let encounters = match_manager::get_seats_from_matches(Some(club), Some(self.config.nature));
                 if has_filter && is_aggressive {
                     println!("⚠️  Mode agressif activé, mise au panier en automatique des sièges disponibles");
                 }
@@ -52,7 +52,7 @@ impl<N: Notify> ScanTask<N> {
                 if self.previous.is_some() {
                     println!("Aucun changement depuis le dernier scan.");
                 } else {
-                    self.notifier.send("Premier scan effectué, résultats enregistrés.");
+                    println!("Premier scan effectué, résultats enregistrés.");
                 }
             } else {
                 self.notify_parsed_info(&scan_result, &changed);

@@ -1,7 +1,7 @@
 use crate::core::seat::Seat;
 use crate::core::club::ClubType;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum MatchNature {
     Rugby,
     Basketball,
