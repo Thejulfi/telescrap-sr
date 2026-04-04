@@ -1,5 +1,6 @@
 #[derive(Debug, Clone)]
 pub struct SeatComposition {
+    pub category: String,
     pub access: String,
     pub row: String,
     pub seat_number: u64,

@@ -10,6 +10,7 @@ pub struct LarochellSeatParser;
 #[derive(Deserialize)]
 struct PackJson {
     pack_id: u64,
+    category_id: Option<String>,
     tickets: HashMap<String, TicketInfo>,
     amount_by_ticket: String,
 }
@@ -20,10 +21,21 @@ struct TicketInfo {
 }
 
 #[derive(Deserialize)]
+struct ResaleAttribute {
+    name: String,
+}
+
+#[derive(Deserialize)]
+struct ResaleSettings {
+    attributes: HashMap<String, ResaleAttribute>,
+}
+
+#[derive(Deserialize)]
 struct DrupalSettings {
     #[serde(rename = "ajaxPageState")]
     ajax_page_state: AjaxPageState,
     ajax: HashMap<String, AjaxEntry>,
+    resale: Option<ResaleSettings>,
 }
 
 #[derive(Deserialize)]
@@ -43,6 +55,7 @@ struct PageContext {
     price_max: String,
     form_build_id: String,
     form_token: String,
+    category_names: HashMap<String, String>,
 }
 
 fn extract_page_context(document: &Html) -> Option<PageContext> {
@@ -75,7 +88,11 @@ fn extract_page_context(document: &Html) -> Option<PageContext> {
         .unwrap_or("")
         .to_string();
 
-    Some(PageContext { ajax_url, libraries, price_min, price_max, form_build_id, form_token })
+    let category_names = settings.resale
+        .map(|r| r.attributes.into_iter().map(|(k, v)| (k, v.name)).collect())
+        .unwrap_or_default();
+
+    Some(PageContext { ajax_url, libraries, price_min, price_max, form_build_id, form_token, category_names })
 }
 
 pub fn parse_seat(html: &str, _encounter: Encounter) -> Vec<Seat> {
@@ -120,11 +137,16 @@ pub fn parse_seat(html: &str, _encounter: Encounter) -> Vec<Seat> {
                 form_token: context.as_ref().map(|c| c.form_token.clone()).unwrap_or_default(),
             };
 
+            let category = pack.category_id.as_deref()
+                    .and_then(|id| context.as_ref()?.category_names.get(id))
+                    .cloned()
+                    .unwrap_or_default();
+
             seats.push(Seat {
                 seat_info: if seat_text.is_empty() { None } else {
                     Some(SeatInfo {
                         full_name: seat_text.clone(),
-                        composition: get_seat_composition(&seat_text.to_string()),
+                        composition: get_seat_composition(&seat_text, &category),
                     })
                 },
                 price: Some(pack.amount_by_ticket.clone()),
@@ -136,9 +158,9 @@ pub fn parse_seat(html: &str, _encounter: Encounter) -> Vec<Seat> {
     seats
 }
 
-fn get_seat_composition(seat_info: &str) -> SeatComposition {
+fn get_seat_composition(seat_info: &str, category: &str) -> SeatComposition {
     let parts: Vec<&str> = seat_info.split('•').map(|s| s.trim()).collect();
-    let mut composition = SeatComposition { access: "".to_string(), row: "".to_string(), seat_number: 0 };
+    let mut composition = SeatComposition { category: category.to_string(), access: "".to_string(), row: "".to_string(), seat_number: 0 };
 
     for part in parts {
         if part.starts_with("Accès") {

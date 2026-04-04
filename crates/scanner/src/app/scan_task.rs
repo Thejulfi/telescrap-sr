@@ -166,11 +166,16 @@ impl<N: Notify> ScanTask<N> {
             let seat_list = match &encounter.seats {
                 Some(seats) if !seats.is_empty() => seats
                     .iter()
-                    .map(|s| format!(
-                        "  • {} — <code>{}€ </code>",
-                        s.seat_info.as_ref().map(|info| &info.full_name).map_or("?", |v| v),
-                        s.price.as_deref().unwrap_or("prix inconnu"),
-                    ))
+                    .map(|s| {
+                        let category = s.seat_info.as_ref().map(|info| info.composition.category.as_str()).unwrap_or("");
+                        let full_name = s.seat_info.as_ref().map(|info| info.full_name.as_str()).unwrap_or("?");
+                        let price = s.price.as_deref().unwrap_or("prix inconnu");
+                        if category.is_empty() {
+                            format!("  • {} — <code>{}€ </code>", full_name, price)
+                        } else {
+                            format!("  • [{}] {} — <code>{}€ </code>", category, full_name, price)
+                        }
+                    })
                     .collect::<Vec<_>>()
                     .join("\n"),
                 _ => "  <i>Aucun siège disponible</i>".to_string(),
