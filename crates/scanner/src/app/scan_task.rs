@@ -33,29 +33,116 @@ impl<N: Notify> ScanTask<N> {
             .await
             .unwrap();
 
-            // Check if there is changes
-            if let Some(prev) = &self.previous {
-                let changed = diff(&prev.encounters, &scan_result.encounters);
-                if changed.is_empty() {
-                    println!("Aucun changement depuis le dernier scan.");
-                } else {
-                    self.notify_parsed_info(&scan_result, &changed);
-                }
+            let changed: Vec<DiffResult> = if let Some(prev) = &self.previous {
+                diff(&prev.encounters, &scan_result.encounters)
             } else {
-                // First iteration: notify if at least one seat is available
-                let encounters_with_seats: Vec<DiffResult> = scan_result.encounters.iter()
+                // First iteration: treat available seats as new
+                scan_result.encounters.iter()
                     .filter(|e| e.seats.as_ref().map_or(false, |s| !s.is_empty()))
                     .map(|e| DiffResult { diff_type: DiffType::NewSeats, encounter_diff_only: e.clone() })
-                    .collect();
-                if !encounters_with_seats.is_empty() {
-                    self.notify_parsed_info(&scan_result, &encounters_with_seats);
+                    .collect()
+            };
+
+            // Apply side by side filter if enabled
+            let changed = self.apply_side_by_side_filter(changed);
+            // Apply price filter if enabled
+            let changed = self.apply_price_filter(changed);
+
+            if changed.is_empty() {
+                if self.previous.is_some() {
+                    println!("Aucun changement depuis le dernier scan.");
                 } else {
                     self.notifier.send("Premier scan effectué, résultats enregistrés.");
                 }
+            } else {
+                self.notify_parsed_info(&scan_result, &changed);
             }
 
             self.previous = Some(scan_result);
         }
+    }
+
+    fn apply_price_filter(&self, changed: Vec<DiffResult>) -> Vec<DiffResult> {
+        let threshold = match self.config.filter.as_ref().and_then(|f| f.price_threshold) {
+            Some(t) => t,
+            None => return changed,
+        };
+
+        changed.into_iter()
+            .filter_map(|mut result| {
+                let seats = match result.encounter_diff_only.seats.take() {
+                    Some(s) if !s.is_empty() => s,
+                    _ => return None,
+                };
+
+                let filtered: Vec<_> = seats.into_iter()
+                    .filter(|s| s.price.as_deref().and_then(|p| p.trim_end_matches('€').parse::<f64>().ok()).map_or(false, |p| p <= threshold))
+                    .collect();
+
+                if filtered.is_empty() {
+                    None
+                } else {
+                    result.encounter_diff_only.seats = Some(filtered);
+                    Some(result)
+                }
+            })
+            .collect()
+    }
+
+    fn apply_side_by_side_filter(&self, changed: Vec<DiffResult>) -> Vec<DiffResult> {
+        let required = match self.config.filter.as_ref().and_then(|f| f.side_by_side) {
+            Some(n) if n > 1 => n as usize,
+            _ => return changed,
+        };
+
+        changed
+            .into_iter()
+            .filter_map(|mut result| {
+                let seats = match result.encounter_diff_only.seats.take() {
+                    Some(s) if !s.is_empty() => s,
+                    _ => return None,
+                };
+
+                // Sort by (access, row, seat_number) so consecutive seats are adjacent
+                let mut sorted = seats;
+                sorted.sort_by(|a, b| {
+                    let ac = a.seat_info.as_ref().map(|i| (i.composition.access.as_str(), i.composition.row.as_str(), i.composition.seat_number));
+                    let bc = b.seat_info.as_ref().map(|i| (i.composition.access.as_str(), i.composition.row.as_str(), i.composition.seat_number));
+                    ac.partial_cmp(&bc).unwrap_or(std::cmp::Ordering::Equal)
+                });
+
+                // Find indices that belong to a run of >= required consecutive seats
+                let mut in_group = vec![false; sorted.len()];
+                let mut run_start = 0;
+                for i in 1..=sorted.len() {
+                    let consecutive = i < sorted.len() && sorted[i].seat_info.as_ref().zip(sorted[i - 1].seat_info.as_ref()).map_or(false, |(cur, prev)| {
+                        cur.composition.access == prev.composition.access
+                            && cur.composition.row == prev.composition.row
+                            && cur.composition.seat_number == prev.composition.seat_number + 1
+                    });
+                    if !consecutive {
+                        if i - run_start >= required {
+                            for j in run_start..i {
+                                in_group[j] = true;
+                            }
+                        }
+                        run_start = i;
+                    }
+                }
+
+                let filtered: Vec<_> = sorted.into_iter().enumerate()
+                    .filter(|(i, _)| in_group[*i])
+                    .map(|(_, s)| s)
+                    .collect();
+
+                if filtered.is_empty() {
+                    None
+                } else {
+                    result.encounter_diff_only.seats = Some(filtered);
+                    Some(result)
+                }
+            })
+            .collect()
     }
 
     fn notify_parsed_info(&self, scan_result: &ScanResult, changed: &[DiffResult]) {
@@ -81,7 +168,7 @@ impl<N: Notify> ScanTask<N> {
                     .iter()
                     .map(|s| format!(
                         "  • {} — <code>{}€ </code>",
-                        s.seat_info.as_deref().unwrap_or("?"),
+                        s.seat_info.as_ref().map(|info| &info.full_name).map_or("?", |v| v),
                         s.price.as_deref().unwrap_or("prix inconnu"),
                     ))
                     .collect::<Vec<_>>()

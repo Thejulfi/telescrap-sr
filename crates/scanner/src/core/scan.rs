@@ -13,6 +13,7 @@ pub struct ScanFilter {
     pub price_threshold: Option<f64>,
     pub date_range: Option<(String, String)>,
     pub position: Option<String>,
+    pub side_by_side: Option<u64>,
 }
 
 #[derive(Debug, Clone)]
