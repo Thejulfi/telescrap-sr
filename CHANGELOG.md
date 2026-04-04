@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-04-04
+
+### Added
+- Crate parser : responsible for parsing the HTML of the ticketing website and extract relevant information about the matches and the available seats.
+- Crate scanner : responsible for performing the scans of the ticketing website, comparing the results with the previous scans, and notifying the Telegram bot of any changes.
+- Crate telegram-notifier : responsible for sending notifications to the Telegram channel when resale tickets are detected;
+
+### Changed
+- The whole project's structure for better maintainability and readability (using library crates and clean architecture principles).
+
+### Removed
+- The old additional implementaion of the bot that made him more than a simple parser/notifier.
+    - Message on telegram channel to notify users about upcoming matches at the beginning of the week, 1h before the match and at the kick-off.
+    - log printed and registered in a local file
+    - Administrator configuration on a private channel to start/stop get the status or setting the polling interval
+    - Auomatic deletion of resale messages at the end of the week or day with a local database to keep track of sent messages
+
 ## [1.1.0] - 2026-03-30
 
 ### Added
