@@ -19,4 +19,12 @@ impl Club {
     pub fn get_url(&self) -> &str {
         &self.url
     }
+
+    pub fn get_type_from_name(name: &str) -> ClubType {
+        match name.to_lowercase().as_str() {
+            "staderochelais" => ClubType::StadeRochelais,
+            "unionbordeauxbegles" => ClubType::UnionBordeauxBegles,
+            _ => panic!("Unknown club name: {}", name),
+        }
+    }
 }

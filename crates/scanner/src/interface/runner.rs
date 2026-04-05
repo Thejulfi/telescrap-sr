@@ -29,6 +29,7 @@ impl ScannerHandle {
                     seat_number: 0,
                 }),
                 side_by_side: None,
+                match_title: None,
             }),
         )
     }

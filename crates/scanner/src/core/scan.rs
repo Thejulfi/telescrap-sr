@@ -15,6 +15,7 @@ pub struct ScanFilter {
     pub date_range: Option<(String, String)>,
     pub position: Option<SeatComposition>,
     pub side_by_side: Option<u64>,
+    pub match_title: Option<String>,
 }
 
 #[derive(Debug, Clone)]

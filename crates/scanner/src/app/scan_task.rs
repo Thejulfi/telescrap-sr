@@ -23,8 +23,20 @@ impl<N: Notify> ScanTask<N> {
             let club = self.config.club.clone();
             let has_filter = self.config.filter.is_some();
             let is_aggressive = self.config.mode == ScanMode::AggressiveScan;
+            let match_title = self.config.filter.as_ref().and_then(|f| f.match_title.clone());
+            let nature = self.config.nature;
             let scan_result = tokio::task::spawn_blocking(move || {
-                let encounters = match_manager::get_seats_from_matches(Some(club), Some(self.config.nature));
+
+                let encounters = if match_title.is_some() {
+                    if let Some(title) = match_title {
+                        println!("Recherche de sièges pour le match '{}'...", title);
+                        match_manager::get_seats_from_match_title(title, club, nature)
+                    } else {
+                        vec![]
+                    }
+                } else {
+                    match_manager::get_seats_from_matches(club, nature)
+                };
                 if has_filter && is_aggressive {
                     println!("⚠️  Mode agressif activé, mise au panier en automatique des sièges disponibles");
                 }
