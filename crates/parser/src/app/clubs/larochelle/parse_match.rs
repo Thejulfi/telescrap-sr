@@ -36,7 +36,7 @@ pub fn parse_match(html: &str) -> Vec<Encounter> {
                 .next()
                 .and_then(|el| el.value().attr("href"))
                 .map(|href| format!("https://billetterie.staderochelais.com/{}", href.trim_start_matches('/')));
-            encounters.push(Encounter { club_type: ClubType::StadeRochelais, title, date, nature, resale_link, seats: None });
+            encounters.push(Encounter::new(ClubType::StadeRochelais, title, date, nature, resale_link));
         }
     }
 

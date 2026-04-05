@@ -6,3 +6,4 @@ target
 .DS_Store
 log.txt
 crates/parser/temp
+matchs.db

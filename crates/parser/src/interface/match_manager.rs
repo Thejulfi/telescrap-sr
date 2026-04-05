@@ -1,14 +1,12 @@
-use crate::core::{
+use crate::{controller::encounter_store::StoreEncounters, core::{
     club::{
         Club,
         ClubType
-    },
-    seat::Seat,
-    encounter::{
+    }, encounter::{
         Encounter,
         MatchNature,
-    },
-};
+    }, seat::Seat
+}};
 
 use crate::controller::html_extract::{FetchHtml, extract_html};
 
@@ -24,6 +22,7 @@ use crate::app::clubs::{
 };
 
 use crate::interface::curl::web::{WebClient, connect_and_add_to_cart};
+use crate::interface::storage::redb::EncounterStore;
 
 /// Fetches all La Rochelle matches, optionally filtered by match nature.
 ///
@@ -59,7 +58,13 @@ pub fn get_seat_by_match(encounter: Encounter) -> Vec<Seat> {
 ///
 pub fn get_seats_from_matches(club: Option<Club>, match_type: Option<MatchNature>) -> Vec<Encounter> {
     let client = WebClient::new();
+    let db = EncounterStore::open("matchs.db").unwrap();
     let matches = get_matches_from_type_and_club(match_type, club);
+    for encounter in &matches {
+        if let Err(e) = db.upsert(encounter) {
+            eprintln!("Storage error for '{}': {}", encounter.title, e);
+        }
+    }
     get_encounters_with_seats(matches, &client)
 }
 

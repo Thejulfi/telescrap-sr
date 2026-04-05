@@ -1,5 +1,6 @@
 use crate::core::seat::Seat;
 use crate::core::club::ClubType;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum MatchNature {
@@ -23,6 +24,7 @@ impl MatchNature {
 
 #[derive(Debug, Clone)]
 pub struct Encounter {
+    pub id: u64,
     pub club_type: ClubType,
     pub title: String,
     pub date: String,
@@ -31,7 +33,21 @@ pub struct Encounter {
     pub seats: Option<Vec<Seat>>,
 }
 
+static ENCOUNTER_COUNTER: AtomicU64 = AtomicU64::new(1);
+
 impl Encounter {
+    pub fn new(club_type: ClubType, title: String, date: String, nature: MatchNature, resale_link: Option<String>) -> Self {
+        Self {
+            id: ENCOUNTER_COUNTER.fetch_add(1, Ordering::Relaxed),
+            club_type,
+            title,
+            date,
+            nature,
+            resale_link,
+            seats: None,
+        }
+    }
+
     pub fn set_seats(&mut self, seats: Vec<Seat>) {
         self.seats = Some(seats);
     }
