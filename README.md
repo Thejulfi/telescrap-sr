@@ -4,7 +4,7 @@
 	<img src="doc/img/logo.png" width="150">
 </p>
 
-[![Cross-Compile and Deploy](https://github.com/Thejulfi/telescrap-sr/actions/workflows/deploy.yml/badge.svg)](https://github.com/Thejulfi/telescrap-sr/actions/workflows/deploy.yml) [![Version](https://img.shields.io/github/v/release/Thejulfi/telescrap-sr?label=version)](https://github.com/Thejulfi/telescrap-sr/releases)
+[![Cross-Compile and Deploy](https://github.com/Thejulfi/telescrap-sr/actions/workflows/deploy.yml/badge.svg)](https://github.com/Thejulfi/telescrap-sr/actions/workflows/deploy.yml)
 
 Scraping tool to get notification for resale ticket, currently implemented for Stade Rochelais rugby matches.
 
@@ -12,11 +12,13 @@ Scraping tool to get notification for resale ticket, currently implemented for S
 
 - [ ] Publish overview of the seat that is available for sale
 - [ ] Filters to only get notified for specific : 
-	- [ ] Match
-	- [ ] Seat location
-	- [ ] Price range
+	- [x] Match (to focus on seats for specific matches)
+	- [x] Seat location
+	- [x] Price range
+	- [ ] Date range
 - [ ] Aggressive mode that add to cart matches corresponding to the filters and notify the user only if the purchase is successful
-- [ ] Admin panel to manage the bot (Telegram private channel or web interface)
+- [ ] Admin panel to manage the bot (Telegram private channel, web interface or terminal)
+- [x] Add a store functionality to save scan configurations results and differences
 
 ## Why this project ?
 
@@ -46,3 +48,11 @@ TELEGRAM_CHAT_ID=your_channel_chat_id_here
 
 The bot is currently active on a private resale channel, accessible only by manual addition.
 You can request access by contacting the project administrator via private message.
+
+## Github Workflow
+
+Current Github workflow (`deploy.yml`) is configured to automatically build and deploy the bot on a server when a new release is published.
+## See also
+
+- [ARCHITECTURE.md](doc/ARCHITECTURE.md) : for more details about the architecture of the project and the crates organization.
+- [CHANGELOG.md](CHANGELOG.md) : for a detailed list of changes and updates made to the project over time.
