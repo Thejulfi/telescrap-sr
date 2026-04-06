@@ -1,3 +1,6 @@
+/// This module manages the retrieval of match and seat information for rugby clubs, as well as interactions with the shopping cart.
+/// 
+/// It provides the main parser functions that should be used in the rest of the application to get matches and seats informations
 use crate::{controller::encounter_store::StoreEncounters, core::{
     club::{
         Club,
@@ -7,9 +10,7 @@ use crate::{controller::encounter_store::StoreEncounters, core::{
         MatchNature,
     }, seat::Seat
 }};
-
-use crate::controller::html_extract::{FetchHtml, extract_html};
-
+use crate::controller::html_extract::FetchHtml;
 use crate::app::clubs::{
     parsers::{
         ParseSeat,
@@ -20,17 +21,10 @@ use crate::app::clubs::{
         parse_seat::LarochellSeatParser,
     }
 };
-
 use crate::interface::curl::web::{WebClient, connect_and_add_to_cart};
 use crate::interface::storage::redb::EncounterStore;
 
 /// Connects to the shop with the given seat information and adds it to the cart.
-/// 
-/// # Arguments
-/// * `seat` - The seat to add to the cart
-/// # Returns
-/// Ok(()) if the seat was successfully added to the cart, Err(String) with an
-/// error message if there was an issue during the process
 pub fn connect_and_add_seat_to_cart(email: String, password: String, seat: Seat) -> Result<(), Box<dyn std::error::Error>> {
     connect_and_add_to_cart(&email, &password, &seat.actions)
 }
@@ -104,7 +98,7 @@ pub fn get_seats_from_match_title(match_title: String, club: Club, match_type: M
                 if record.title == match_title && record.resale_active {
                         // If that records has an active resale link, try to fetch seats from it
                         let link = &record.resale_link;
-                        match extract_html(link, &client) {
+                        match client.get_html(link) {
                             Ok(_) => {
                                 let enc = Encounter::new(
                                     Club::get_type_from_name(&record.club_type),
@@ -141,15 +135,13 @@ pub fn get_seats_from_match_title(match_title: String, club: Club, match_type: M
 /// A list of encounters with their seats information populated
 fn get_encounters_with_seats(matches: Vec<Encounter>, client: &impl FetchHtml) -> Vec<Encounter> {
     matches.into_iter().map(|mut encounter| {
-        let parser: &dyn ParseSeat = match encounter.club_type {
-            ClubType::StadeRochelais => &LarochellSeatParser,
-            ClubType::UnionBordeauxBegles => todo!("Bordeaux parser not yet implemented"),
-        };
         if let Some(link) = encounter.resale_link.clone() {
-            match extract_html(&link, client) {
-                Ok(html) => encounter.set_seats(parser.parse_seat(&html, encounter.clone())),
+            match client.get_html(&link) {
+                Ok(html) => encounter.set_seats(get_seats(&html, encounter.clone())),
                 Err(e) => eprintln!("Error fetching {}: {}", link, e),
             }
+        } else {
+            encounter.set_seats(Vec::new());
         }
         encounter
     }).collect()
@@ -173,7 +165,7 @@ fn get_matches(club: &Club, client: &impl FetchHtml, match_type: MatchNature) ->
     };
 
     // Step 1 : Extract HTML content from the club's URL
-    let content = extract_html(club.get_url(), client);
+    let content = client.get_html(club.get_url());
 
     // Step 2 : Parse the HTML content to find matches (encounters) information
     let matches = parser.parse_match(&content.unwrap_or_default());
@@ -182,6 +174,23 @@ fn get_matches(club: &Club, client: &impl FetchHtml, match_type: MatchNature) ->
     matches.into_iter().filter(|encounter| encounter.nature == match_type).collect()
 }
 
+/// Internal function to fetch seats for a given encounter, based on its club type and resale link.
+/// It selects the correct seat parser based on the club type and uses it to parse the seats information from the HTML content of the resale link.
+///
+/// # Arguments
+/// * `html` - The HTML content to parse for seat information
+/// * `encounter` - The encounter for which to fetch seats information (used to determine the correct parser based on club type)
+/// # Returns
+/// A list of seats associated with the given encounter, parsed from the HTML content
+fn get_seats(html: &str, encounter: Encounter) -> Vec<Seat> {
+    let parser: &dyn ParseSeat = match encounter.club_type {
+        ClubType::StadeRochelais => &LarochellSeatParser,
+        ClubType::UnionBordeauxBegles => todo!("Bordeaux parser not yet implemented"),
+    };
+
+    parser.parse_seat(html, encounter)
+}
+    
 /// Internal function to fetch all match encounters for a given club and match nature
 ///
 /// # Arguments

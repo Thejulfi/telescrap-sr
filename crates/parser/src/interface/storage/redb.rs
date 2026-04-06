@@ -1,21 +1,24 @@
-use redb::{Database, ReadableDatabase, ReadableTable, TableDefinition};
+/// This module implements the `StoreEncounters` trait using the `redb` embedded database.
+/// It defines the `EncounterStore` struct, which provides methods for synchronizing parsed encounters with
+/// the store, retrieving active resale links, looking up records by stable ID, and retrieving all records from the store.
 use std::path::Path;
+use redb::{Database, ReadableDatabase, ReadableTable, TableDefinition};
+use crate::{
+    controller::encounter_store::{EncounterRecord, StoreEncounters},
+    core::encounter::Encounter,
+};
 
-use crate::controller::encounter_store::{EncounterRecord, StoreEncounters};
-use crate::core::encounter::Encounter;
-
+// Encounters are stored in a single table with `stable_id` as the key and the JSON-serialized `EncounterRecord` as the value.
 const ENCOUNTERS_TABLE: TableDefinition<&str, &str> = TableDefinition::new("encounters");
 
-// ---------------------------------------------------------------------------
-// Error type
-// ---------------------------------------------------------------------------
-
+/// Custom error type for storage-related errors, encompassing both database errors from `redb` and serialization errors from `serde_json`.
 #[derive(Debug)]
 pub enum StorageError {
     Redb(Box<dyn std::error::Error + Send + Sync>),
     Json(serde_json::Error),
 }
 
+/// Implementations to convert various `redb` error types into `StorageError`, allowing for unified error handling in the `EncounterStore` methods.
 impl std::fmt::Display for StorageError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -25,14 +28,18 @@ impl std::fmt::Display for StorageError {
     }
 }
 
+/// Implement the standard `Error` trait for `StorageError` to allow it to be used with the `?` operator and other error handling utilities in Rust.
 impl std::error::Error for StorageError {}
 
+/// Implement conversions from `serde_json::Error` and various `redb` error types to `StorageError`, enabling seamless error handling in the `EncounterStore` methods.
 impl From<serde_json::Error> for StorageError {
     fn from(e: serde_json::Error) -> Self {
         StorageError::Json(e)
     }
 }
 
+/// Macro to implement `From` conversions for multiple `redb` error types into `StorageError::Redb`,
+/// allowing for concise and consistent error handling in the `EncounterStore` methods.
 macro_rules! impl_from_redb_error {
     ($($t:ty),*) => {
         $(impl From<$t> for StorageError {
@@ -43,6 +50,7 @@ macro_rules! impl_from_redb_error {
     };
 }
 
+// Implement `From` conversions for the various `redb` error types into `StorageError::Redb` using the `impl_from_redb_error` macro.
 impl_from_redb_error!(
     redb::DatabaseError,
     redb::TransactionError,
@@ -51,24 +59,27 @@ impl_from_redb_error!(
     redb::StorageError
 );
 
-// ---------------------------------------------------------------------------
-// Persisted record
-// ---------------------------------------------------------------------------
-
+/// Helper function to create a stable ID for an encounter based on its title and date, which is used as the key in the database.
 fn make_stable_id(title: &str, date: &str) -> String {
     format!("{title}|{date}")
 }
 
-// ---------------------------------------------------------------------------
-// Store
-// ---------------------------------------------------------------------------
-
+/// Encounter store structure that uses `redb` for persistent storage of encounter records,
+/// implementing the `StoreEncounters` trait to provide methods for synchronizing parsed encounters with the store,
+/// retrieving active resale links, looking up records by stable ID, and retrieving all records from the store.
 pub struct EncounterStore {
     db: Database,
 }
 
 impl EncounterStore {
-    /// Opens (or creates) the database at `path` and ensures the table exists.
+    /// Opens a `redb` database at the specified path and initializes the encounters table
+    /// if it does not already exist.
+    /// 
+    /// # Arguments
+    /// * `path` - The file path where the `redb` database should be created or opened
+    /// # Returns
+    /// A `Result` containing an instance of `EncounterStore` if the database was successfully opened and initialized,
+    /// or a `StorageError` if there was an error during the process.
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self, StorageError> {
         let db = Database::create(path)?;
         let txn = db.begin_write()?;
@@ -79,6 +90,16 @@ impl EncounterStore {
 }
 
 impl StoreEncounters for EncounterStore {
+
+    /// Synchronizes a parsed `Encounter` with the store by inserting or updating the corresponding `EncounterRecord` in the database.
+    /// If the `Encounter` has a `resale_link`, it will be inserted or updated with `resale_active = true`.
+    /// If the `Encounter` does not have a `resale_link`, the existing record (if any) will be updated to set `resale_active = false`
+    /// while keeping the existing URL.
+    /// 
+    /// # Arguments
+    /// * `encounter` - The `Encounter` instance to be synchronized with the store
+    /// # Returns
+    /// A `Result` indicating success or containing a `StorageError` if there was an error during the synchronization process.
     fn upsert(&self, encounter: &Encounter) -> Result<(), String> {
         (|| -> Result<(), StorageError> {
             let stable_id = make_stable_id(&encounter.title, &encounter.date);
@@ -118,6 +139,11 @@ impl StoreEncounters for EncounterStore {
         .map_err(|e| e.to_string())
     }
 
+    /// Retrieves all records from the store that have an active resale link.
+    /// 
+    /// # Returns
+    /// A `Result` containing a vector of `EncounterRecord` instances with active resale links if the retrieval was successful,
+    /// or a `StorageError` if there was an error during the retrieval process.
     fn get_active_resale_links(&self) -> Result<Vec<EncounterRecord>, String> {
         (|| -> Result<Vec<EncounterRecord>, StorageError> {
             let txn = self.db.begin_read()?;
@@ -135,7 +161,16 @@ impl StoreEncounters for EncounterStore {
         })()
         .map_err(|e| e.to_string())
     }
-
+    
+    /// Looks up a single record in the store by its stable ID, which is derived from the encounter's title and date.
+    /// 
+    /// # Arguments
+    /// * `title` - The title of the encounter to look up
+    /// * `date` - The date of the encounter to look up
+    /// # Returns
+    /// A `Result` containing an `Option<EncounterRecord>` if the lookup was successful,
+    /// where `Some(EncounterRecord)` is returned if a record with the specified title and date exists, and `None` is returned if no such record exists.
+    /// If there was an error during the lookup process, a `StorageError` is returned
     fn get_by_stable_id(&self, title: &str, date: &str) -> Result<Option<EncounterRecord>, String> {
         (|| -> Result<Option<EncounterRecord>, StorageError> {
             let stable_id = make_stable_id(title, date);
@@ -152,6 +187,11 @@ impl StoreEncounters for EncounterStore {
         .map_err(|e| e.to_string())
     }
 
+    /// Retrieves all records from the store, regardless of their resale link status.
+    /// 
+    /// # Returns
+    /// A `Result` containing a vector of all `EncounterRecord` instances in the store if the retrieval was successful,
+    /// or a `StorageError` if there was an error during the retrieval process.
     fn get_all(&self) -> Result<Vec<EncounterRecord>, String> {
         (|| -> Result<Vec<EncounterRecord>, StorageError> {
             let txn = self.db.begin_read()?;

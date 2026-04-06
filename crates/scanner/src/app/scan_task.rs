@@ -90,12 +90,12 @@ impl<N: Notify> ScanTask<N> {
                 };
 
                 let filtered: Vec<_> = seats.into_iter()
-                    .filter(|s| s.seat_info.as_ref().map_or(false, |info| {
-                        let c = &info.composition;
+                    .filter(|s| {
+                        let c = &s.seat_info.composition;
                         (pos_filter.category.is_empty() || c.category.to_lowercase().contains(&pos_filter.category.to_lowercase()))
                             && (pos_filter.access.is_empty() || c.access.to_lowercase().contains(&pos_filter.access.to_lowercase()))
                             && (pos_filter.row.is_empty() || c.row.to_lowercase() == pos_filter.row.to_lowercase())
-                    }))
+                    })
                     .collect();
 
                 if filtered.is_empty() {
@@ -122,7 +122,7 @@ impl<N: Notify> ScanTask<N> {
                 };
 
                 let filtered: Vec<_> = seats.into_iter()
-                    .filter(|s| s.price.as_deref().and_then(|p| p.trim_end_matches('€').parse::<f64>().ok()).map_or(false, |p| p <= threshold))
+                    .filter(|s| s.price.trim_end_matches('€').parse::<f64>().ok().map_or(false, |p| p <= threshold))
                     .collect();
 
                 if filtered.is_empty() {
@@ -152,8 +152,8 @@ impl<N: Notify> ScanTask<N> {
                 // Sort by (access, row, seat_number) so consecutive seats are adjacent
                 let mut sorted = seats;
                 sorted.sort_by(|a, b| {
-                    let ac = a.seat_info.as_ref().map(|i| (i.composition.access.as_str(), i.composition.row.as_str(), i.composition.seat_number));
-                    let bc = b.seat_info.as_ref().map(|i| (i.composition.access.as_str(), i.composition.row.as_str(), i.composition.seat_number));
+                    let ac = Some((a.seat_info.composition.access.as_str(), a.seat_info.composition.row.as_str(), a.seat_info.composition.seat_number));
+                    let bc = Some((b.seat_info.composition.access.as_str(), b.seat_info.composition.row.as_str(), b.seat_info.composition.seat_number));
                     ac.partial_cmp(&bc).unwrap_or(std::cmp::Ordering::Equal)
                 });
 
@@ -161,11 +161,13 @@ impl<N: Notify> ScanTask<N> {
                 let mut in_group = vec![false; sorted.len()];
                 let mut run_start = 0;
                 for i in 1..=sorted.len() {
-                    let consecutive = i < sorted.len() && sorted[i].seat_info.as_ref().zip(sorted[i - 1].seat_info.as_ref()).map_or(false, |(cur, prev)| {
-                        cur.composition.access == prev.composition.access
-                            && cur.composition.row == prev.composition.row
-                            && cur.composition.seat_number == prev.composition.seat_number + 1
-                    });
+                    let consecutive = i < sorted.len() && {
+                        let cur = &sorted[i].seat_info.composition;
+                        let prev = &sorted[i - 1].seat_info.composition;
+                        cur.access == prev.access
+                            && cur.row == prev.row
+                            && cur.seat_number == prev.seat_number + 1
+                    };
                     if !consecutive {
                         if i - run_start >= required {
                             for j in run_start..i {
@@ -205,17 +207,17 @@ impl<N: Notify> ScanTask<N> {
         for result in changed {
             let encounter = &result.encounter_diff_only;
             let (status_icon, status_label) = match result.diff_type {
-                DiffType::NewSeats => ("🟢", "Nouveaux sièges"),
-                DiffType::RemovedSeats => ("🔴", "Sièges retirés"),
+                DiffType::NewSeats => ("🟢", "Nouvelles places"),
+                DiffType::RemovedSeats => ("🔴", "Places retirées"),
             };
 
             let seat_list = match &encounter.seats {
                 Some(seats) if !seats.is_empty() => seats
                     .iter()
                     .map(|s| {
-                        let category = s.seat_info.as_ref().map(|info| info.composition.category.as_str()).unwrap_or("");
-                        let full_name = s.seat_info.as_ref().map(|info| info.full_name.as_str()).unwrap_or("?");
-                        let price = s.price.as_deref().unwrap_or("prix inconnu");
+                        let category = s.seat_info.composition.category.as_str();
+                        let full_name = s.seat_info.full_name.as_str();
+                        let price = s.price.as_str();
                         if category.is_empty() {
                             format!("  • {} — <code>{}€ </code>", full_name, price)
                         } else {
