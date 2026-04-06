@@ -1,3 +1,11 @@
+use parser::{
+    controller::encounter_store::StoreEncounters,
+    core::{
+        club::ClubType,
+        encounter::{Encounter, MatchNature},
+    },
+    interface::storage::EncounterStore,
+};
 use scanner::interface::runner::ScannerHandle;
 use telegram_notifier::TelegramNotifier;
 
@@ -12,6 +20,29 @@ async fn main() {
         .expect("TELEGRAM_CHAT_ID non défini dans .env")
         .parse()
         .expect("TELEGRAM_CHAT_ID doit être un entier");
+
+    // Seed the database with the LR / BDX match to track, then drop the handle
+    // so the scanner can open its own connection without hitting DatabaseAlreadyOpen.
+    {
+        let db = EncounterStore::open("matchs.db").unwrap();
+        db.upsert(&Encounter::new(
+            ClubType::StadeRochelais,
+            "STADE ROCHELAIS / UNION BORDEAUX BÈGLES".to_string(),
+            "samedi 18 avril à 14h30".to_string(),
+            MatchNature::Rugby,
+            Some("https://billetterie.staderochelais.com/fr/product/1048/revente_stade_rochelais_union_bordeaux_begles".to_string()),
+        )).unwrap();
+    }
+    // {
+    //     let db = EncounterStore::open("matchs.db").unwrap();
+    //     db.upsert(&Encounter::new(
+    //         ClubType::StadeRochelais,
+    //         "STADE ROCHELAIS BASKET / ROUEN".to_string(),
+    //         "mardi 7 avril à 20h00".to_string(),
+    //         MatchNature::Basketball,
+    //         Some("https://billetterie.staderochelais.com/fr/product/1032/revente_stade_rochelais_basket_rouen".to_string()),
+    //     )).unwrap();
+    // }
 
     // Telegram notifier configuration with environment variables
     let notifier = TelegramNotifier::new(bot_token, chat_id);

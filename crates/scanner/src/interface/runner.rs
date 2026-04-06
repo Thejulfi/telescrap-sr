@@ -29,7 +29,8 @@ impl ScannerHandle {
                     seat_number: 0,
                 }),
                 side_by_side: None,
-                match_title: None,
+                // match_title: Some("STADE ROCHELAIS BASKET / ROUEN".to_string()),
+                match_title: Some("STADE ROCHELAIS / UNION BORDEAUX BÈGLES".to_string()),
             }),
         )
     }
