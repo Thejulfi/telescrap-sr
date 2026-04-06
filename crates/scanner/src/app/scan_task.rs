@@ -1,10 +1,16 @@
 
-use tokio::time::{interval, Duration};
-use crate::core::scan::{ScanConfig, ScanResult, ScanMode};
-use crate::controller::notify::Notify;
-use crate::app::diff::{diff, DiffResult, DiffType};
+/// This module defines the `ScanTask` struct and its associated logic for performing periodic scans of encounters,
+/// applying filters, and notifying about changes in available seats.
 use parser::interface::match_manager;
+use tokio::time::{interval, Duration};
+use crate::{
+    app::diff::{diff, DiffResult, DiffType},
+    controller::notify::Notify,
+    core::scan::{ScanConfig, ScanMode, ScanResult},
+};
 
+/// Represents a scanning task that periodically checks for changes in encounters based on a specified configuration,
+/// applies filters to the results, and sends notifications about any detected changes.
 pub struct ScanTask<N: Notify> {
     config: ScanConfig,
     notifier: N,
@@ -12,10 +18,20 @@ pub struct ScanTask<N: Notify> {
 }
 
 impl<N: Notify> ScanTask<N> {
+    /// Creates a new `ScanTask` with the specified configuration and notifier.
+    ///
+    /// # Arguments
+    /// * `config` - The configuration for the scan task.
+    /// * `notifier` - The notifier to use for sending notifications about changes.
+    ///
+    /// # Returns
+    /// A new instance of `ScanTask` initialized with the provided configuration and notifier.
     pub fn new(config: ScanConfig, notifier: N) -> Self {
         Self { config, notifier, previous: None }
     }
 
+    /// Runs the scan task, periodically checking for changes in encounters, applying filters,
+    /// and sending notifications about any detected changes.
     pub async fn run(mut self) {
         let mut ticker = interval(Duration::from_secs(self.config.interval));
         loop {
@@ -69,13 +85,20 @@ impl<N: Notify> ScanTask<N> {
                     println!("Premier scan effectué, résultats enregistrés.");
                 }
             } else {
-                self.notify_parsed_info(&scan_result, &changed);
+                self.notify_parsed_info(&changed);
             }
 
             self.previous = Some(scan_result);
         }
     }
 
+    /// Applies the seat position filter to the list of detected changes, filtering out seats that do not match the specified criteria.
+    /// 
+    /// # Arguments
+    /// * `changed` - A vector of `DiffResult` instances representing the detected changes before applying the position filter.
+    /// 
+    /// # Returns
+    /// A vector of `DiffResult` instances representing the detected changes after applying the position filter.
     fn apply_position_filter(&self, changed: Vec<DiffResult>) -> Vec<DiffResult> {
         let pos_filter = match self.config.filter.as_ref().and_then(|f| f.position.clone()) {
             Some(p) => p,
@@ -108,6 +131,13 @@ impl<N: Notify> ScanTask<N> {
             .collect()
     }
 
+    /// Applies the price filter to the list of detected changes, filtering out seats that exceed the specified price threshold.
+    /// 
+    /// # Arguments
+    /// * `changed` - A vector of `DiffResult` instances representing the detected changes before applying the price filter.
+    /// 
+    /// # Returns
+    /// A vector of `DiffResult` instances representing the detected changes after applying the price filter
     fn apply_price_filter(&self, changed: Vec<DiffResult>) -> Vec<DiffResult> {
         let threshold = match self.config.filter.as_ref().and_then(|f| f.price_threshold) {
             Some(t) => t,
@@ -135,6 +165,13 @@ impl<N: Notify> ScanTask<N> {
             .collect()
     }
 
+    /// Applies the side-by-side filter to the list of detected changes, filtering out seats that do not have the required number of consecutive seats available.
+    /// 
+    /// # Arguments
+    /// * `changed` - A vector of `DiffResult` instances representing the detected changes before applying the side-by-side filter.
+    /// 
+    /// # Returns
+    /// A vector of `DiffResult` instances representing the detected changes after applying the side-by-side filter.
     fn apply_side_by_side_filter(&self, changed: Vec<DiffResult>) -> Vec<DiffResult> {
         let required = match self.config.filter.as_ref().and_then(|f| f.side_by_side) {
             Some(n) if n > 1 => n as usize,
@@ -193,15 +230,18 @@ impl<N: Notify> ScanTask<N> {
             .collect()
     }
 
-    fn notify_parsed_info(&self, scan_result: &ScanResult, changed: &[DiffResult]) {
-        println!("Scanned at: {:?}", scan_result.scanned_at);
-
-        let scanned_at_str = self.get_scanner_time_str(scan_result);
-
+    /// Notifies about the parsed information by constructing a message that includes the details of the encounters and the detected changes, and sending it through the notifier.
+    /// 
+    /// # Arguments
+    /// * `scan_result` - The result of the scan containing the list of encounters and the timestamp of when the scan was performed.
+    /// * `changed` - A slice of `DiffResult` instances representing the detected changes that should be included in the notification.
+    ///
+    /// # Returns
+    /// This method does not return a value, but it sends a formatted message through the notifier containing the details of the encounters and the detected changes.
+    fn notify_parsed_info(&self, changed: &[DiffResult]) {
         let mut message = format!(
-            "🏉 <b>{}</b>\n<i>{}</i>\n",
+            "🏉 <b>{}</b>\n",
             self.config.club.name,
-            scanned_at_str,
         );
 
         for result in changed {
@@ -243,29 +283,30 @@ impl<N: Notify> ScanTask<N> {
         self.notifier.send(&message);
     }
 
-    fn get_scanner_time_str(&self, scan_result: &ScanResult) -> String {
-        let secs = scan_result.scanned_at
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs())
-            .unwrap_or(0);
-        let (h, m, s) = (secs % 86400 / 3600, secs % 3600 / 60, secs % 60);
-        let days_since_epoch = secs / 86400;
-        // Simple Gregorian date from days since 1970-01-01
-        let (mut y, mut doy) = (1970u32, days_since_epoch as u32);
-        loop {
-            let dy = if y % 4 == 0 && (y % 100 != 0 || y % 400 == 0) { 366 } else { 365 };
-            if doy < dy { break; }
-            doy -= dy;
-            y += 1;
-        }
-        let leap = y % 4 == 0 && (y % 100 != 0 || y % 400 == 0);
-        let months = [31u32, if leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-        let (mut mo, mut d) = (1u32, doy + 1);
-        for days_in_month in months {
-            if d <= days_in_month { break; }
-            d -= days_in_month;
-            mo += 1;
-        }
-        format!("{:02}/{:02}/{} à {:02}:{:02}:{:02}", d, mo, y, h, m, s)
-    }
+    // TODO : see if that really useful
+    // fn get_scanner_time_str(&self, scanned_at: &ScanResult) -> String {
+    //     let secs = scan_result.scanned_at
+    //         .duration_since(std::time::UNIX_EPOCH)
+    //         .map(|d| d.as_secs())
+    //         .unwrap_or(0);
+    //     let (h, m, s) = (secs % 86400 / 3600, secs % 3600 / 60, secs % 60);
+    //     let days_since_epoch = secs / 86400;
+    //     // Simple Gregorian date from days since 1970-01-01
+    //     let (mut y, mut doy) = (1970u32, days_since_epoch as u32);
+    //     loop {
+    //         let dy = if y % 4 == 0 && (y % 100 != 0 || y % 400 == 0) { 366 } else { 365 };
+    //         if doy < dy { break; }
+    //         doy -= dy;
+    //         y += 1;
+    //     }
+    //     let leap = y % 4 == 0 && (y % 100 != 0 || y % 400 == 0);
+    //     let months = [31u32, if leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    //     let (mut mo, mut d) = (1u32, doy + 1);
+    //     for days_in_month in months {
+    //         if d <= days_in_month { break; }
+    //         d -= days_in_month;
+    //         mo += 1;
+    //     }
+    //     format!("{:02}/{:02}/{} à {:02}:{:02}:{:02}", d, mo, y, h, m, s)
+    // }
 }

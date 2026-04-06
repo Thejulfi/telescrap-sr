@@ -5,6 +5,7 @@ use telegram_notifier::TelegramNotifier;
 async fn main() {
     dotenv::dotenv().ok();
 
+    // Load Telegram bot token and chat ID from environment variables
     let bot_token = std::env::var("TELEGRAM_BOT_TOKEN")
         .expect("TELEGRAM_BOT_TOKEN non défini dans .env");
     let chat_id: i64 = std::env::var("TELEGRAM_CHAT_ID")

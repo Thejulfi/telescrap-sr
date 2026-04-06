@@ -1,17 +1,32 @@
+/// This module defines the logic for diffing two sets of encounters to identify new and removed seats
+/// or any other changes perfomed in the resale tickets got from the parser.
 use parser::core::encounter::Encounter;
 
+/// Enumeration representing the type of difference detected between two sets of encounters, such as new seats or removed seats.
 #[derive(Debug, Clone)]
 pub enum DiffType {
     NewSeats,
     RemovedSeats,
 }
 
+/// Represents the result of a diff operation, containing the type of difference and the encounter
+/// with only the relevant seats for that difference.
 #[derive(Debug, Clone)]
 pub struct DiffResult {
     pub diff_type: DiffType,
     pub encounter_diff_only: Encounter,
 }
 
+/// Computes the difference between two sets of encounters, identifying new and removed seats.
+/// This function is used to compare the current list of encounters with a previous list to determine what has changed,
+/// such as new seats becoming available or existing seats being removed.
+/// 
+/// # Arguments
+/// * `previous` - A slice of `Encounter` instances representing the previous state of encounters.
+/// * `current` - A slice of `Encounter` instances representing the current state of encounters.
+/// 
+/// # Returns
+/// A vector of `DiffResult` instances representing the differences detected between the two sets of encounters
 pub fn diff(previous: &[Encounter], current: &[Encounter]) -> Vec<DiffResult> {
     let mut results = Vec::new();
 
