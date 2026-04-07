@@ -8,17 +8,19 @@ use crate::{controller::encounter_store::StoreEncounters, core::{
     }, encounter::{
         Encounter,
         MatchNature,
-    }, seat::Seat
+    }, seat::{Seat, SeatComposition}
 }};
 use crate::controller::html_extract::FetchHtml;
 use crate::app::clubs::{
     parsers::{
         ParseSeat,
         ParseMatch,
+        ParseSeatPreview,
     },
     larochelle::{
         parse_match::LarochellMatchParser,
         parse_seat::LarochellSeatParser,
+        parse_seat_preview::LarochellSeatPreviewParser,
     }
 };
 use crate::interface::curl::web::{WebClient, connect_and_add_to_cart};
@@ -201,4 +203,20 @@ fn get_seats(html: &str, encounter: Encounter) -> Vec<Seat> {
 fn get_matches_from_type_and_club(match_type: MatchNature, club: Club) -> Vec<Encounter> {
     let client = WebClient::new();
     get_matches(&club, &client, match_type)
+}
+
+/// Fetches the Pacifa3d preview image URL for a given seat composition, dispatching to the correct
+/// parser based on the club type.
+///
+/// # Arguments
+/// * `club` - The club the seat belongs to (used to select the correct parser)
+/// * `composition` - The seat composition (access, row, seat number) to resolve
+/// # Returns
+/// `Some(url)` if the preview image was found, `None` otherwise
+pub fn get_seat_preview(club: &Club, composition: &SeatComposition) -> Option<String> {
+    let parser: &dyn ParseSeatPreview = match club.club_type {
+        ClubType::StadeRochelais => &LarochellSeatPreviewParser,
+        ClubType::UnionBordeauxBegles => todo!("Bordeaux preview parser not yet implemented"),
+    };
+    parser.fetch_preview_url(composition)
 }

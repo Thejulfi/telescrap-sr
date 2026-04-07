@@ -24,13 +24,14 @@ impl ScannerHandle {
                 date_range: None,
                 position: Some(SeatComposition {
                     category: "".to_string(),
-                    access: "".to_string(),
+                    bloc: "".to_string(),
                     row: "".to_string(),
                     seat_number: 0,
                 }),
                 side_by_side: None,
                 // match_title: Some("STADE ROCHELAIS BASKET / ROUEN".to_string()),
                 match_title: Some("STADE ROCHELAIS / UNION BORDEAUX BÈGLES".to_string()),
+                is_preview: Some(true),
             }),
         )
     }

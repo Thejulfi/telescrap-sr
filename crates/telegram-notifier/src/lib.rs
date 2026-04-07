@@ -1,7 +1,7 @@
 use scanner::controller::notify::Notify;
 use teloxide::{
     prelude::*,
-    types::ParseMode,
+    types::{InputFile, ParseMode},
 };
 
 /// This module defines the `TelegramNotifier` struct, which implements the `Notify` trait to send notifications to a Telegram chat.
@@ -35,6 +35,23 @@ impl Notify for TelegramNotifier {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
                 bot.send_message(chat_id, message).parse_mode(ParseMode::Html).await.ok();
+            });
+        });
+    }
+
+    fn send_photo(&self, photo_url: &str, caption: &str) {
+        let bot = Bot::new(&self.bot_token);
+        let chat_id = ChatId(self.chat_id);
+        let caption = caption.to_string();
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                if let Ok(url) = reqwest::Url::parse(&photo_url) {
+                    bot.send_photo(chat_id, InputFile::url(url))
+                        .caption(caption)
+                        .parse_mode(ParseMode::Html)
+                        .await
+                        .ok();
+                }
             });
         });
     }

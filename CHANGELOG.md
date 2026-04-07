@@ -19,8 +19,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Adding comments to the whole codebase to improve readability and maintainability, especially for the core logic of the parser and scanner.
 
-### Removed
-
 ## [2.0.0] - 2026-04-04
 
 ### Added

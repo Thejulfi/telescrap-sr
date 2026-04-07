@@ -78,6 +78,24 @@ impl<N: Notify> ScanTask<N> {
             // Apply seat position filter if enabled
             let changed = self.apply_position_filter(changed);
 
+            // Check if we need to load seat's preview image for the notification
+            let load_preview = self.config.filter.as_ref()
+                .and_then(|f| f.is_preview)
+                .unwrap_or(false);
+            let mut changed = changed;
+            if load_preview {
+                for result in &mut changed {
+                    if let Some(seats) = &mut result.encounter_diff_only.seats {
+                        for seat in seats.iter_mut() {
+                            seat.seat_info.preview_url = match_manager::get_seat_preview(
+                                &self.config.club,
+                                &seat.seat_info.composition,
+                            );
+                        }
+                    }
+                }
+            }
+
             if changed.is_empty() {
                 if self.previous.is_some() {
                     println!("Aucun changement depuis le dernier scan.");
@@ -116,7 +134,7 @@ impl<N: Notify> ScanTask<N> {
                     .filter(|s| {
                         let c = &s.seat_info.composition;
                         (pos_filter.category.is_empty() || c.category.to_lowercase().contains(&pos_filter.category.to_lowercase()))
-                            && (pos_filter.access.is_empty() || c.access.to_lowercase().contains(&pos_filter.access.to_lowercase()))
+                            && (pos_filter.bloc.is_empty() || c.bloc.to_lowercase().contains(&pos_filter.bloc.to_lowercase()))
                             && (pos_filter.row.is_empty() || c.row.to_lowercase() == pos_filter.row.to_lowercase())
                     })
                     .collect();
@@ -189,8 +207,8 @@ impl<N: Notify> ScanTask<N> {
                 // Sort by (access, row, seat_number) so consecutive seats are adjacent
                 let mut sorted = seats;
                 sorted.sort_by(|a, b| {
-                    let ac = Some((a.seat_info.composition.access.as_str(), a.seat_info.composition.row.as_str(), a.seat_info.composition.seat_number));
-                    let bc = Some((b.seat_info.composition.access.as_str(), b.seat_info.composition.row.as_str(), b.seat_info.composition.seat_number));
+                    let ac = Some((a.seat_info.composition.bloc.as_str(), a.seat_info.composition.row.as_str(), a.seat_info.composition.seat_number));
+                    let bc = Some((b.seat_info.composition.bloc.as_str(), b.seat_info.composition.row.as_str(), b.seat_info.composition.seat_number));
                     ac.partial_cmp(&bc).unwrap_or(std::cmp::Ordering::Equal)
                 });
 
@@ -201,7 +219,7 @@ impl<N: Notify> ScanTask<N> {
                     let consecutive = i < sorted.len() && {
                         let cur = &sorted[i].seat_info.composition;
                         let prev = &sorted[i - 1].seat_info.composition;
-                        cur.access == prev.access
+                        cur.bloc == prev.bloc
                             && cur.row == prev.row
                             && cur.seat_number == prev.seat_number + 1
                     };
@@ -239,10 +257,7 @@ impl<N: Notify> ScanTask<N> {
     /// # Returns
     /// This method does not return a value, but it sends a formatted message through the notifier containing the details of the encounters and the detected changes.
     fn notify_parsed_info(&self, changed: &[DiffResult]) {
-        let mut message = format!(
-            "🏉 <b>{}</b>\n",
-            self.config.club.name,
-        );
+        let header = format!("🏉 <b>{}</b>", self.config.club.name);
 
         for result in changed {
             let encounter = &result.encounter_diff_only;
@@ -251,36 +266,58 @@ impl<N: Notify> ScanTask<N> {
                 DiffType::RemovedSeats => ("🔴", "Places retirées"),
             };
 
-            let seat_list = match &encounter.seats {
-                Some(seats) if !seats.is_empty() => seats
-                    .iter()
-                    .map(|s| {
-                        let category = s.seat_info.composition.category.as_str();
-                        let full_name = s.seat_info.full_name.as_str();
-                        let price = s.price.as_str();
-                        if category.is_empty() {
-                            format!("  • {} — <code>{}€ </code>", full_name, price)
-                        } else {
-                            format!("  • [{}] {} — <code>{}€ </code>", category, full_name, price)
-                        }
-                    })
-                    .collect::<Vec<_>>()
-                    .join("\n"),
-                _ => "  <i>Aucun siège disponible</i>".to_string(),
-            };
-
             let resale = match &encounter.resale_link {
-                Some(link) => format!("\n\n🔗 <a href=\"{}\">Accéder à la revente</a>", link),
+                Some(link) => format!("\n🔗 <a href=\"{}\">Accéder à la revente</a>", link),
                 None => String::new(),
             };
 
-            message.push_str(&format!(
-                "\n\n━━━━━━━━━━━━━━━━\n\n🆚 <b>{}</b>\n📅 <i>{}</i>\n\n{} <b>{} :</b>\n\n{}{}",
-                encounter.title, encounter.date, status_icon, status_label, seat_list, resale,
-            ));
-        }
+            let encounter_header = format!(
+                "{}\n\n━━━━━━━━━━━━━━━━\n\n🆚 <b>{}</b>\n📅 <i>{}</i>\n\n{} <b>{} :</b>{}",
+                header, encounter.title, encounter.date, status_icon, status_label, resale,
+            );
 
-        self.notifier.send(&message);
+            match &encounter.seats {
+                Some(seats) if !seats.is_empty() => {
+                    // Seats with a preview: one photo message per seat
+                    let (with_preview, without_preview): (Vec<_>, Vec<_>) = seats.iter()
+                        .partition(|s| s.seat_info.preview_url.is_some());
+
+                    for seat in &with_preview {
+                        let category = seat.seat_info.composition.category.as_str();
+                        let full_name = seat.seat_info.full_name.as_str();
+                        let price = seat.price.as_str();
+                        let seat_line = if category.is_empty() {
+                            format!("  • {} — <code>{}€ </code>", full_name, price)
+                        } else {
+                            format!("  • [{}] {} — <code>{}€ </code>", category, full_name, price)
+                        };
+                        let caption = format!("{}\n\n{}", encounter_header, seat_line);
+                        self.notifier.send_photo(seat.seat_info.preview_url.as_deref().unwrap(), &caption);
+                    }
+
+                    // Remaining seats without preview: one grouped text message
+                    if !without_preview.is_empty() {
+                        let seat_list = without_preview.iter()
+                            .map(|s| {
+                                let category = s.seat_info.composition.category.as_str();
+                                let full_name = s.seat_info.full_name.as_str();
+                                let price = s.price.as_str();
+                                if category.is_empty() {
+                                    format!("  • {} — <code>{}€ </code>", full_name, price)
+                                } else {
+                                    format!("  • [{}] {} — <code>{}€ </code>", category, full_name, price)
+                                }
+                            })
+                            .collect::<Vec<_>>()
+                            .join("\n");
+                        self.notifier.send(&format!("{}\n\n{}", encounter_header, seat_list));
+                    }
+                }
+                _ => {
+                    self.notifier.send(&format!("{}\n\n  <i>Aucun siège disponible</i>", encounter_header));
+                }
+            }
+        }
     }
 
     // TODO : see if that really useful

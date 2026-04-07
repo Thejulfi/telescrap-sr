@@ -9,4 +9,8 @@ impl Notify for ConsoleNotifier {
     fn send(&self, message: &str) {
         println!("[NOTIF] {}\n-----------------", message);
     }
+
+    fn send_photo(&self, photo_url: &str, caption: &str) {
+        println!("[NOTIF PHOTO] {}\n{}\n-----------------", caption, photo_url);
+    }
 }
