@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-04-06
+
+### Added
+- Better difference detection to identify new and removed seats more accurately, even when the seat numbers are not in the same order or when some seats are added or removed between scans.
+- Filters : 
+    - Filter by seat composition (e.g., only notify about seats that are together or only about single seats).
+    - Filter by match type (e.g., only notify for certain matches titles).
+    - Filter by price range (e.g., only notify about seats within a certain price range).
+- Documentation for subcrates (still very light, but it's a start).
+- Database integration to keep track of sent of each matches potential resale link and avoid scanning the main page for target's matches filtering.
+
+### Changed
+- Adding comments to the whole codebase to improve readability and maintainability, especially for the core logic of the parser and scanner.
+
+### Removed
+
 ## [2.0.0] - 2026-04-04
 
 ### Added
