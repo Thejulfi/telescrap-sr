@@ -77,6 +77,8 @@ impl<N: Notify> ScanTask<N> {
             let changed = self.apply_price_filter(changed);
             // Apply seat position filter if enabled
             let changed = self.apply_position_filter(changed);
+            // Only notify on new seats, not on removals
+            let changed: Vec<DiffResult> = changed.into_iter().filter(|r| r.diff_type == DiffType::NewSeats).collect();
 
             // Check if we need to load seat's preview image for the notification
             let load_preview = self.config.filter.as_ref()

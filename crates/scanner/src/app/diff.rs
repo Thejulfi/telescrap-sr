@@ -3,7 +3,7 @@
 use parser::core::encounter::Encounter;
 
 /// Enumeration representing the type of difference detected between two sets of encounters, such as new seats or removed seats.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum DiffType {
     NewSeats,
     RemovedSeats,
