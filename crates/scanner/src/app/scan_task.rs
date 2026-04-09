@@ -36,6 +36,7 @@ impl<N: Notify> ScanTask<N> {
         let mut ticker = interval(Duration::from_secs(self.config.interval));
         loop {
             ticker.tick().await;
+            let scan_start = std::time::Instant::now();
             let club = self.config.club.clone();
             let has_filter = self.config.filter.is_some();
             let is_aggressive = self.config.mode == ScanMode::AggressiveScan;
@@ -45,7 +46,6 @@ impl<N: Notify> ScanTask<N> {
 
                 let encounters = if match_title.is_some() {
                     if let Some(title) = match_title {
-                        println!("Recherche de sièges pour le match '{}'...", title);
                         match_manager::get_seats_from_match_title(title, club, nature)
                     } else {
                         vec![]
@@ -98,13 +98,9 @@ impl<N: Notify> ScanTask<N> {
                 }
             }
 
-            if changed.is_empty() {
-                if self.previous.is_some() {
-                    println!("Aucun changement depuis le dernier scan.");
-                } else {
-                    println!("Premier scan effectué, résultats enregistrés.");
-                }
-            } else {
+            if !changed.is_empty() {
+                let elapsed = scan_start.elapsed();
+                println!("⏱️  Scan terminé en {:.2?} ({} match(es) trouvé(s))", elapsed, changed.len());
                 self.notify_parsed_info(&changed);
             }
 
