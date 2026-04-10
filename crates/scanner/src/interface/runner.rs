@@ -12,7 +12,7 @@ impl ScannerHandle {
     pub fn configure() -> ScanConfig {
         ScanConfig::new(
             ScanMode::PassiveScan,
-            60,
+            30,
             parser::core::club::Club::new(
                 "Stade Rochelais".to_string(),
                 parser::core::club::ClubType::StadeRochelais,
