@@ -9,3 +9,4 @@ parser = { path = "../parser" }
 teloxide = { version = "0.13", features = ["macros"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 dotenv = "0.15"
+reqwest = "0.11"

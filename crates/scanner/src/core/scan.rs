@@ -21,6 +21,7 @@ pub struct ScanFilter {
     pub position: Option<SeatComposition>,
     pub side_by_side: Option<u64>,
     pub match_title: Option<String>,
+    pub is_preview: Option<bool>,
 }
 
 /// Represents the configuration for scanning encounters, including the mode, interval, club, match nature, and optional filters.

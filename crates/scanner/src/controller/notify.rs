@@ -3,4 +3,5 @@
 /// such as a Telegram bot or an email sender.
 pub trait Notify: Send + 'static {
     fn send(&self, message: &str);
+    fn send_photo(&self, photo_url: &str, caption: &str);
 }

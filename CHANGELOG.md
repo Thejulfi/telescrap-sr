@@ -5,7 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.0.0] - 2026-04-06
+## [2.0.2] - 2026-04-10
+
+### Added
+- Seat preview image in Telegram notifications: when enabled, each seat with an available preview is sent as a photo message via the Pacifa3d 3D viewer API (configurable per scan filter).
+
+### Changed
+- Notifications are no longer sent when seats are removed from the resale platform, to avoid spamming the channel.
+
+## [2.0.1] - 2026-04-06
 
 ### Added
 - Better difference detection to identify new and removed seats more accurately, even when the seat numbers are not in the same order or when some seats are added or removed between scans.
@@ -18,8 +26,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Adding comments to the whole codebase to improve readability and maintainability, especially for the core logic of the parser and scanner.
-
-### Removed
 
 ## [2.0.0] - 2026-04-04
 

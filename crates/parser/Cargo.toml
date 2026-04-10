@@ -3,6 +3,10 @@ name = "parser"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "parser-preview"
+path = "src/main.rs"
+
 [dependencies]
 curl = "0.4.49"
 dotenvy = "0.15.7"

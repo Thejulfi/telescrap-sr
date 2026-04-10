@@ -207,6 +207,7 @@ pub fn parse_seat(html: &str, _encounter: Encounter) -> Vec<Seat> {
                 seat_info: SeatInfo {
                         full_name: seat_text.clone(),
                         composition: get_seat_composition(&seat_text, &category),
+                        preview_url: None,
                     },
                 price: pack.amount_by_ticket.clone(),
                 actions,
@@ -234,11 +235,11 @@ pub fn parse_seat(html: &str, _encounter: Encounter) -> Vec<Seat> {
 /// A `SeatComposition` struct containing the parsed seat composition information
 fn get_seat_composition(seat_info: &str, category: &str) -> SeatComposition {
     let parts: Vec<&str> = seat_info.split('•').map(|s| s.trim()).collect();
-    let mut composition = SeatComposition { category: category.to_string(), access: String::new(), row: String::new(), seat_number: 0 };
+    let mut composition = SeatComposition { category: category.to_string(), bloc: String::new(), row: String::new(), seat_number: 0 };
 
     for part in parts {
-        if part.starts_with("Accès") {
-            composition.access = part.replacen("Accès", "", 1).trim().to_string();
+        if part.starts_with("Bloc") {
+            composition.bloc = part.replacen("Bloc", "", 1).trim().to_string();
         } else if part.starts_with("Rang") {
             composition.row = part.replacen("Rang", "", 1).trim().to_string();
         } else if part.starts_with("Siège") {
@@ -258,3 +259,4 @@ impl ParseSeat for LarochellSeatParser {
         parse_seat(html, encounter)
     }
 }
+

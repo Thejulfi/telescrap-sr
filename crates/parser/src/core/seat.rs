@@ -6,7 +6,7 @@
 #[derive(Debug, Clone)]
 pub struct SeatComposition {
     pub category: String,
-    pub access: String,
+    pub bloc: String,
     pub row: String,
     pub seat_number: u64,
 }
@@ -16,6 +16,7 @@ pub struct SeatComposition {
 pub struct SeatInfo {
     pub full_name: String,
     pub composition: SeatComposition,
+    pub preview_url: Option<String>,
 }
 
 /// SeatAction represents the actions that can be performed on a seat, such as adding it to a shopping cart.
