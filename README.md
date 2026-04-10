@@ -10,14 +10,14 @@ Scraping tool to get notification for resale ticket, currently implemented for S
 
 ## Roadmap
 
-- [ ] Publish overview of the seat that is available for sale
+- [x] Publish overview of the seat that is available for sale
 - [ ] Filters to only get notified for specific : 
 	- [x] Match (to focus on seats for specific matches)
 	- [x] Seat location
 	- [x] Price range
 	- [ ] Date range
 - [ ] Aggressive mode that add to cart matches corresponding to the filters and notify the user only if the purchase is successful
-- [ ] Admin panel to manage the bot (Telegram private channel, web interface or terminal)
+- [ ] Admin panel to manage the bot (web interface or terminal)
 - [x] Add a store functionality to save scan configurations results and differences
 
 ## Why this project ?
