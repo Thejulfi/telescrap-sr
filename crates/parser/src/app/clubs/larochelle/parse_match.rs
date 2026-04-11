@@ -26,7 +26,7 @@ pub fn parse_match(html: &str) -> Vec<Encounter> {
     let document = Html::parse_document(html);
 
     // Define CSS selectors for the relevant HTML elements containing match information
-    let meeting_selector = Selector::parse("div.meeting").unwrap();
+    let meeting_selector = Selector::parse("li.cards-grid__item").unwrap();
     let title_selector = Selector::parse("h3.title").unwrap();
     let date_selector = Selector::parse("span.date").unwrap();
     let link_selector = Selector::parse("a.btn-resale").unwrap();
