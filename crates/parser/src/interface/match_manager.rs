@@ -68,11 +68,23 @@ pub fn get_seats_from_matches(club: Club, match_type: MatchNature) -> Vec<Encoun
     let client = WebClient::new();
     let db = EncounterStore::open("matchs.db").unwrap();
     let matches = get_matches_from_type_and_club(match_type, club);
-    for encounter in &matches {
-        if let Err(e) = db.upsert(encounter) {
+
+    let matches: Vec<Encounter> = matches.into_iter().map(|mut encounter| {
+        // If the page didn't return a resale link, check DB for an existing active one
+        if encounter.resale_link.is_none() {
+            if let Ok(Some(record)) = db.get_by_stable_id(&encounter.title, &encounter.date) {
+                if record.resale_active {
+                    encounter.resale_link = Some(record.resale_link);
+                }
+            }
+        }
+        // Upsert the (possibly enriched) encounter
+        if let Err(e) = db.upsert(&encounter) {
             eprintln!("Storage error for '{}': {}", encounter.title, e);
         }
-    }
+        encounter
+    }).collect();
+
     get_encounters_with_seats(matches, &client)
 }
 
