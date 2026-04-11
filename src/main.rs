@@ -1,3 +1,4 @@
+#![allow(unused)]
 use parser::{
     controller::encounter_store::StoreEncounters,
     core::{
@@ -6,6 +7,7 @@ use parser::{
     },
     interface::storage::EncounterStore,
 };
+use scanner::{controller::notify::Notify, core::scan};
 use scanner::interface::runner::ScannerHandle;
 use telegram_notifier::TelegramNotifier;
 
@@ -45,10 +47,13 @@ async fn main() {
     // }
 
     // Telegram notifier configuration with environment variables
-    let notifier = TelegramNotifier::new(bot_token, chat_id);
+    let notifier = TelegramNotifier::new(bot_token, chat_id, env!("CARGO_PKG_VERSION"));
+    // Send or update the bot's status message on startup
     // Scanner configuration (interval, club, match type, filters)
     let scan_config = ScannerHandle::configure();
+    notifier.notify_state(scan_config.clone());
     // Start the scanner with the specified configuration and notifier
+    let notifier_for_shutdown = notifier.clone();
     let _handle = ScannerHandle::start(scan_config, notifier);
 
     tokio::signal::ctrl_c().await.unwrap();

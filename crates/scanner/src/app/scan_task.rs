@@ -56,6 +56,7 @@ impl<N: Notify> ScanTask<N> {
                 if has_filter && is_aggressive {
                     println!("⚠️  Mode agressif activé, mise au panier en automatique des sièges disponibles");
                 }
+                println!("📋 {} rencontre(s) récupérée(s)", encounters.len());
                 ScanResult::new(encounters)
             })
             .await
@@ -86,6 +87,7 @@ impl<N: Notify> ScanTask<N> {
                 .unwrap_or(false);
             let mut changed = changed;
             if load_preview {
+                println!("🖼️  Chargement des aperçus de sièges...");
                 for result in &mut changed {
                     if let Some(seats) = &mut result.encounter_diff_only.seats {
                         for seat in seats.iter_mut() {
@@ -102,6 +104,9 @@ impl<N: Notify> ScanTask<N> {
                 let elapsed = scan_start.elapsed();
                 println!("⏱️  Scan terminé en {:.2?} ({} match(es) trouvé(s))", elapsed, changed.len());
                 self.notify_parsed_info(&changed);
+            } else {
+                let elapsed = scan_start.elapsed();
+                println!("✅ Aucun changement détecté ({:.2?})", elapsed);
             }
 
             self.previous = Some(scan_result);

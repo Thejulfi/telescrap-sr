@@ -13,4 +13,13 @@ impl Notify for ConsoleNotifier {
     fn send_photo(&self, photo_url: &str, caption: &str) {
         println!("[NOTIF PHOTO] {}\n{}\n-----------------", caption, photo_url);
     }
+
+    fn send_and_pin(&self, message: &str) -> Option<i32> {
+        println!("[NOTIF PINNED] {}\n-----------------", message);
+        None
+    }
+        
+    fn edit_message(&self, _message_id: i32, message: &str) {
+        println!("[NOTIF EDITED] {}\n-----------------", message);
+    }
 }

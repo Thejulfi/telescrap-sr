@@ -24,7 +24,7 @@ use crate::app::clubs::{
     }
 };
 use crate::interface::curl::web::{WebClient, connect_and_add_to_cart};
-use crate::interface::storage::redb::EncounterStore;
+use crate::interface::storage::EncounterStore;
 
 /// Connects to the shop with the given seat information and adds it to the cart.
 pub fn connect_and_add_seat_to_cart(email: String, password: String, seat: Seat) -> Result<(), Box<dyn std::error::Error>> {

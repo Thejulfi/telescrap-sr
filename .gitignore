@@ -10,3 +10,4 @@ matchs.db
 crates/parser/src/main.rs
 crates/telegram-notifier/src/main.rs
 crates/scanner/src/main.rs
+state.db
