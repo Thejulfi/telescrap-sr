@@ -10,6 +10,7 @@ use parser::{
 use scanner::{controller::notify::Notify, core::scan};
 use scanner::interface::runner::ScannerHandle;
 use telegram_notifier::TelegramNotifier;
+use tokio::sync::watch;
 
 #[tokio::main]
 async fn main() {
@@ -48,13 +49,15 @@ async fn main() {
 
     // Telegram notifier configuration with environment variables
     let notifier = TelegramNotifier::new(bot_token, chat_id, env!("CARGO_PKG_VERSION"));
-    // Send or update the bot's status message on startup
     // Scanner configuration (interval, club, match type, filters)
     let scan_config = ScannerHandle::configure();
     notifier.notify_state(scan_config.clone());
-    // Start the scanner with the specified configuration and notifier
+    // Create the watch channel — config_tx allows sending config updates at runtime
+    let (config_tx, config_rx) = watch::channel(scan_config);
+    // Start the scanner with the config receiver and notifier
     let notifier_for_shutdown = notifier.clone();
-    let _handle = ScannerHandle::start(scan_config, notifier);
+    let _handle = ScannerHandle::start(config_rx, notifier);
 
     tokio::signal::ctrl_c().await.unwrap();
+    drop(config_tx); // explicit drop on shutdown
 }
