@@ -24,7 +24,7 @@ use crate::app::clubs::{
     }
 };
 use crate::interface::curl::web::{WebClient, connect_and_add_to_cart};
-use crate::interface::storage::redb::EncounterStore;
+use crate::interface::storage::EncounterStore;
 
 /// Connects to the shop with the given seat information and adds it to the cart.
 pub fn connect_and_add_seat_to_cart(email: String, password: String, seat: Seat) -> Result<(), Box<dyn std::error::Error>> {
@@ -68,11 +68,23 @@ pub fn get_seats_from_matches(club: Club, match_type: MatchNature) -> Vec<Encoun
     let client = WebClient::new();
     let db = EncounterStore::open("matchs.db").unwrap();
     let matches = get_matches_from_type_and_club(match_type, club);
-    for encounter in &matches {
-        if let Err(e) = db.upsert(encounter) {
+
+    let matches: Vec<Encounter> = matches.into_iter().map(|mut encounter| {
+        // If the page didn't return a resale link, check DB for an existing active one
+        if encounter.resale_link.is_none() {
+            if let Ok(Some(record)) = db.get_by_stable_id(&encounter.title, &encounter.date) {
+                if record.resale_active {
+                    encounter.resale_link = Some(record.resale_link);
+                }
+            }
+        }
+        // Upsert the (possibly enriched) encounter
+        if let Err(e) = db.upsert(&encounter) {
             eprintln!("Storage error for '{}': {}", encounter.title, e);
         }
-    }
+        encounter
+    }).collect();
+
     get_encounters_with_seats(matches, &client)
 }
 

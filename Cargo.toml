@@ -1,11 +1,12 @@
 [package]
 name = "telescrap-sr"
-version = "0.1.0"
+version = "2.1.2"
 edition = "2024"
 
 [dependencies]
 scanner = { path = "crates/scanner" }
 parser = { path = "crates/parser" }
 telegram-notifier = { path = "crates/telegram-notifier" }
+admin-panel = { path = "crates/admin-panel" }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 dotenv = "0.15"

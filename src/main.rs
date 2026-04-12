@@ -1,3 +1,5 @@
+#![allow(unused)]
+use admin_panel::interface::admin_panel;
 use parser::{
     controller::encounter_store::StoreEncounters,
     core::{
@@ -6,8 +8,10 @@ use parser::{
     },
     interface::storage::EncounterStore,
 };
+use scanner::{controller::notify::Notify, core::scan};
 use scanner::interface::runner::ScannerHandle;
 use telegram_notifier::TelegramNotifier;
+use tokio::sync::watch;
 
 #[tokio::main]
 async fn main() {
@@ -33,23 +37,27 @@ async fn main() {
             Some("https://billetterie.staderochelais.com/fr/product/1048/revente_stade_rochelais_union_bordeaux_begles".to_string()),
         )).unwrap();
     }
-    // {
-    //     let db = EncounterStore::open("matchs.db").unwrap();
-    //     db.upsert(&Encounter::new(
-    //         ClubType::StadeRochelais,
-    //         "STADE ROCHELAIS BASKET / ROUEN".to_string(),
-    //         "mardi 7 avril à 20h00".to_string(),
-    //         MatchNature::Basketball,
-    //         Some("https://billetterie.staderochelais.com/fr/product/1032/revente_stade_rochelais_basket_rouen".to_string()),
-    //     )).unwrap();
-    // }
 
+    // ------- Step 0 : Initialize components -------
     // Telegram notifier configuration with environment variables
-    let notifier = TelegramNotifier::new(bot_token, chat_id);
+    let notifier = TelegramNotifier::new(bot_token, chat_id, env!("CARGO_PKG_VERSION"));
     // Scanner configuration (interval, club, match type, filters)
     let scan_config = ScannerHandle::configure();
-    // Start the scanner with the specified configuration and notifier
-    let _handle = ScannerHandle::start(scan_config, notifier);
 
+    // ------- Step 1 : Notify startup and create config channel -------
+    notifier.notify_state(scan_config.clone());
+
+    // ------- Step 2 : Create the watch channel -------
+    // Create the watch channel — config_tx allows sending config updates at runtime
+    let (config_tx, config_rx) = watch::channel(scan_config);
+
+
+    // ------- Step 3 : Start scanner and admin panel task -------
+    // Start the scanner with the config receiver and notifier
+    let _handle = ScannerHandle::start(config_rx, notifier);
+    // Start the admin panel web server in a separate task (owns config_tx)
+    tokio::spawn(admin_panel::run(config_tx));
+
+    // ------- Step 4 : Wait for shutdown signal (Ctrl+C) -------
     tokio::signal::ctrl_c().await.unwrap();
 }

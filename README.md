@@ -17,8 +17,12 @@ Scraping tool to get notification for resale ticket, currently implemented for S
 	- [x] Price range
 	- [ ] Date range
 - [ ] Aggressive mode that add to cart matches corresponding to the filters and notify the user only if the purchase is successful
-- [ ] Admin panel to manage the bot (web interface or terminal)
+- [x] Admin panel to manage the bot (web interface or terminal)
+	- [ ] Allow storing scan config in data base in modification from the admin panel
+	- [ ] Add stats about the current scanning process (like number of matches found, from how much time did the bot start, etc.)
 - [x] Add a store functionality to save scan configurations results and differences
+- [x] Bot send a message with its version and maybe some information about its settings when it starts (and pin the message in the channel)
+	- [ ] Send back another message if the settings are changed (e.g., filters updated, aggressive mode enabled/disabled, etc.)
 
 ## Why this project ?
 

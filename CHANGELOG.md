@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.2] - 2026-04-12
+
+### Fixed
+- Fix HTML tag identification for match parsing on the ticketing website
+
+### Added
+- Admin web panel (port 3000) to manage the bot configuration at runtime:
+- Pinned message in the Telegram channel on startup showing the bot version, scan mode, interval and active filters
+
+### Changed
+- Scan configuration is now shared between the scanner and the admin panel via a `watch` channel, allowing live updates
+- Deployment workflow now authenticates via SSH key instead of username/password
+
 ## [2.0.2] - 2026-04-10
 
 ### Added

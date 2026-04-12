@@ -2,6 +2,7 @@
 /// This module defines the `ScanTask` struct and its associated logic for performing periodic scans of encounters,
 /// applying filters, and notifying about changes in available seats.
 use parser::interface::match_manager;
+use tokio::sync::watch;
 use tokio::time::{interval, Duration};
 use crate::{
     app::diff::{diff, DiffResult, DiffType},
@@ -13,6 +14,7 @@ use crate::{
 /// applies filters to the results, and sends notifications about any detected changes.
 pub struct ScanTask<N: Notify> {
     config: ScanConfig,
+    config_rx: watch::Receiver<ScanConfig>,
     notifier: N,
     previous: Option<ScanResult>,
 }
@@ -26,8 +28,9 @@ impl<N: Notify> ScanTask<N> {
     ///
     /// # Returns
     /// A new instance of `ScanTask` initialized with the provided configuration and notifier.
-    pub fn new(config: ScanConfig, notifier: N) -> Self {
-        Self { config, notifier, previous: None }
+    pub fn new(mut config_rx: watch::Receiver<ScanConfig>, notifier: N) -> Self {
+        let config = config_rx.borrow_and_update().clone();
+        Self { config, config_rx, notifier, previous: None }
     }
 
     /// Runs the scan task, periodically checking for changes in encounters, applying filters,
@@ -35,7 +38,18 @@ impl<N: Notify> ScanTask<N> {
     pub async fn run(mut self) {
         let mut ticker = interval(Duration::from_secs(self.config.interval));
         loop {
-            ticker.tick().await;
+            tokio::select! {
+                _ = ticker.tick() => {}
+                result = self.config_rx.changed() => {
+                    if result.is_err() {
+                        break; // sender dropped (shutdown), exit cleanly
+                    }
+                    self.config = self.config_rx.borrow_and_update().clone();
+                    ticker = interval(Duration::from_secs(self.config.interval));
+                    println!("⚙️  Configuration mise à jour, redémarrage du cycle");
+                    continue;
+                }
+            }
             let scan_start = std::time::Instant::now();
             let club = self.config.club.clone();
             let has_filter = self.config.filter.is_some();
@@ -56,6 +70,7 @@ impl<N: Notify> ScanTask<N> {
                 if has_filter && is_aggressive {
                     println!("⚠️  Mode agressif activé, mise au panier en automatique des sièges disponibles");
                 }
+                println!("📋 {} rencontre(s) récupérée(s)", encounters.len());
                 ScanResult::new(encounters)
             })
             .await
@@ -86,6 +101,7 @@ impl<N: Notify> ScanTask<N> {
                 .unwrap_or(false);
             let mut changed = changed;
             if load_preview {
+                println!("🖼️  Chargement des aperçus de sièges...");
                 for result in &mut changed {
                     if let Some(seats) = &mut result.encounter_diff_only.seats {
                         for seat in seats.iter_mut() {
@@ -102,6 +118,9 @@ impl<N: Notify> ScanTask<N> {
                 let elapsed = scan_start.elapsed();
                 println!("⏱️  Scan terminé en {:.2?} ({} match(es) trouvé(s))", elapsed, changed.len());
                 self.notify_parsed_info(&changed);
+            } else {
+                let elapsed = scan_start.elapsed();
+                println!("✅ Aucun changement détecté ({:.2?})", elapsed);
             }
 
             self.previous = Some(scan_result);
