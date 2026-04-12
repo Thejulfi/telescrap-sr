@@ -2,6 +2,7 @@ use crate::core::scan::{ScanConfig, ScanFilter, ScanMode};
 use crate::controller::notify::Notify;
 use crate::app::scan_task::ScanTask;
 use parser::core::encounter::MatchNature;
+#[allow(unused)]
 use parser::core::seat::SeatComposition;
 use tokio::sync::watch;
 
@@ -19,19 +20,13 @@ impl ScannerHandle {
                 parser::core::club::ClubType::StadeRochelais,
                 "https://billetterie.staderochelais.com/fr".to_string(),
             ),
-            MatchNature::Basketball,
+            MatchNature::Rugby,
             Some(ScanFilter {
                 price_threshold: None,
                 date_range: None,
-                position: Some(SeatComposition {
-                    category: "".to_string(),
-                    bloc: "".to_string(),
-                    row: "".to_string(),
-                    seat_number: 0,
-                }),
+                position: None,
                 side_by_side: None,
-                // match_title: Some("STADE ROCHELAIS BASKET / ROUEN".to_string()),
-                match_title: Some("STADE ROCHELAIS / UNION BORDEAUX BÈGLES".to_string()),
+                match_title: None,
                 is_preview: Some(true),
             }),
         )
