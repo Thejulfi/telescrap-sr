@@ -41,7 +41,7 @@ jobs:
         with:
           host: ${{ secrets.PI_HOST }}
           username: jfi
-          password: ${{ secrets.RPI_PASS }}
+          key: ${{ secrets.RPI_SSH_KEY }}
           script: |
             mkdir -p ~/rust-project
             chmod 755 ~/rust-project
@@ -52,7 +52,7 @@ jobs:
         with:
           host: ${{ secrets.PI_HOST }}
           username: jfi
-          password: ${{ secrets.RPI_PASS }}
+          key: ${{ secrets.RPI_SSH_KEY }}
           source: "target/aarch64-unknown-linux-gnu/release/telescrap-sr"
           target: "~/rust-project/"
           strip_components: 3
