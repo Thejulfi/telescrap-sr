@@ -1,0 +1,11 @@
+[package]
+name = "admin-panel"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+axum = "0.8.8"
+parser = { path = "../parser" }
+scanner = { path = "../scanner" }
+serde = { version = "1.0.228", features = ["derive"] }
+tokio = { version = "1.51.1", features = ["full"] }

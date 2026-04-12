@@ -7,5 +7,6 @@ edition = "2024"
 scanner = { path = "crates/scanner" }
 parser = { path = "crates/parser" }
 telegram-notifier = { path = "crates/telegram-notifier" }
+admin-panel = { path = "crates/admin-panel" }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 dotenv = "0.15"
