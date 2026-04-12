@@ -10,19 +10,9 @@ Scraping tool to get notification for resale ticket, currently implemented for S
 
 ## Roadmap
 
-- [x] Publish overview of the seat that is available for sale
-- [ ] Filters to only get notified for specific : 
-	- [x] Match (to focus on seats for specific matches)
-	- [x] Seat location
-	- [x] Price range
-	- [ ] Date range
-- [ ] Aggressive mode that add to cart matches corresponding to the filters and notify the user only if the purchase is successful
+- [ ] Filter rework to allow 1 passive and mulitple aggressive filters
 - [x] Admin panel to manage the bot (web interface or terminal)
-	- [ ] Allow storing scan config in data base in modification from the admin panel
-	- [ ] Add stats about the current scanning process (like number of matches found, from how much time did the bot start, etc.)
-- [x] Add a store functionality to save scan configurations results and differences
-- [x] Bot send a message with its version and maybe some information about its settings when it starts (and pin the message in the channel)
-	- [ ] Send back another message if the settings are changed (e.g., filters updated, aggressive mode enabled/disabled, etc.)
+- [ ] config.json to set up the scan and filter configuration by default (and save updated ones from the admin panel).
 
 ## Why this project ?
 
@@ -38,20 +28,18 @@ The bot analyzes the homepage of the ticketing site, looking for the matches tha
 
 ## Configuration
 
-1. Create a Telegram bot and get its token (see [this documentation](https://core.telegram.org/bots#6-botfather)).
-
-2. Get your Telegram chat ID (see [this documentation](https://stackoverflow.com/questions/32423837/telegram-bot-how-to-get-a-group-chat-id)).
-
-3. Create a `.env` file at the root of the project with the following environment variables:
-```
-TELEGRAM_BOT_TOKEN=your_bot_token_here
-TELEGRAM_CHAT_ID=your_channel_chat_id_here
-```
+To set up the bot, follow the steps describes in [SERVER_INSTALLATION.md](doc/SERVER_INSTALLATION.md) documentation.
 
 ## 🚨 Telegram Resale Channel 🚨
 
 The bot is currently active on a private resale channel, accessible only by manual addition.
 You can request access by contacting the project administrator via private message.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="doc/img/telegram_channel.png">
+  <source media="(prefers-color-scheme: light)" srcset="doc/img/telegram_channel.png">
+  <img src="doc/img/telegram_channel.png" width="100%">
+</picture>
 
 ## Github Workflow
 
