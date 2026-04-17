@@ -35,10 +35,10 @@ impl TelegramNotifier {
             self.version
         );
 
-        let mode = match scan_config.mode {
-            ScanMode::PassiveScan => "Passif",
-            ScanMode::AggressiveScan => "Agressif",
-        };
+        // let mode = match scan_config.mode {
+        //     ScanMode::PassiveScan => "Passif",
+        //     ScanMode::AggressiveScan => "Agressif",
+        // };
         let interval_min = scan_config.interval / 60;
         let interval_sec = scan_config.interval % 60;
         let interval_str = if interval_min > 0 {
@@ -49,30 +49,14 @@ impl TelegramNotifier {
 
         let mut config_lines = vec![
             format!("-  Club visé : {}", scan_config.club.name),
-            format!("-  Mode : {}", mode),
+            // format!("-  Mode : {}", mode),
             format!("-  Intervalle : {}", interval_str),
-            format!("-  Filtres : {}", if scan_config.filter.is_some() { "Oui" } else { "Non" })
+            format!("-  Filtres : {}", if scan_config.filter_chain.is_some() { "Oui" } else { "Non" }),
+            format!("-  Aperçu : {}", if scan_config.is_preview { "Oui" } else { "Non" }),
         ];
-
-        // todo!("must set filters details in place when the state dadabase is implemented");
-        if let Some(_filter) = &scan_config.filter {
-            config_lines.push("    • Not implemented".to_string());
-            // if let Some(price) = filter.price_threshold {
-            //     config_lines.push(format!("    • Prix max : {:.2}€", price));
-            // }
-            // if let Some(n) = filter.side_by_side {
-            //     config_lines.push(format!("    • Places côte à côte : {}", n));
-            // }
-            // if let Some(title) = &filter.match_title {
-            //     config_lines.push(format!("    • Match cible : {}", title));
-            // }
-            // if let Some((from, to)) = &filter.date_range {
-            //     config_lines.push(format!("    • Période : {} → {}", from, to));
-            // }
-            // if let Some(filter_is_preview) = filter.is_preview {
-            //     config_lines.push(format!("    • Mode aperçu : {}", if filter_is_preview { "Oui" } else { "Non" }));
-            // }
-        }
+        // if let Some(title) = &scan_config.match_title {
+        //     config_lines.push(format!("    • Match cible : {}", title));
+        // }
 
         let config_block = config_lines.join("\n");
         let full_message = format!(
