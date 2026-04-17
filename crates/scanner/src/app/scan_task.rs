@@ -4,6 +4,7 @@ use parser::core::encounter::Encounter;
 /// applying filters, and notifying about changes in available seats.
 use parser::interface::match_manager;
 use filter::filter::Filter;
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use tokio::sync::watch;
 use tokio::time::{interval, Duration};
 use crate::{
@@ -107,11 +108,18 @@ impl<N: Notify> ScanTask<N> {
             }
         }
 
+        // In aggressive mode, attempt to add detected seats to the basket on the ticketing website.
+        let basket_successes = if self.config.mode == ScanMode::AggressiveScan {
+            self.try_aggressive_add_to_basket(&result)
+        } else {
+            0
+        };
+
         // Calculate elapsed time and send notifications if there are changes, otherwise log that no change was detected
         if !result.is_empty() {
                 let elapsed = scan_start.elapsed();
                 println!("⏱️  Scan terminé en {:.2?} ({} match(es) trouvé(s))", elapsed, result.len());
-                self.notify_parsed_info(&result);
+                self.notify_parsed_info(&result, basket_successes);
             } else {
                 let elapsed = scan_start.elapsed();
                 println!("✅ Aucun changement détecté ({:.2?})", elapsed);
@@ -121,15 +129,103 @@ impl<N: Notify> ScanTask<N> {
         }
     }
 
+    /// In aggressive mode, attempts to automatically add detected seats to the basket on the ticketing website.
+    /// This method uses the `match_manager` to connect to the ticketing website and add seats to the cart based on the provided encounters.
+    /// 
+    /// # Arguments
+    /// * `encounters` - A slice of `Encounter` instances representing the detected encounters with available seats that should be added to the basket.
+    /// # Returns
+    /// The number of seats that were successfully added to the basket.
+    /// 
+    /// Note: This method requires the `SHOP_EMAIL` and `SHOP_PASSWORD` environment variables to be set with valid credentials for the ticketing website.
+    fn try_aggressive_add_to_basket(&self, encounters: &[Encounter]) -> usize {
+        if encounters.is_empty() {
+            return 0;
+        }
+
+        let email = match std::env::var("SHOP_EMAIL") {
+            Ok(v) if !v.trim().is_empty() => v,
+            _ => {
+                eprintln!("[AGGRESSIVE] SHOP_EMAIL missing, auto add-to-basket skipped");
+                return 0;
+            }
+        };
+        let password = match std::env::var("SHOP_PASSWORD") {
+            Ok(v) if !v.trim().is_empty() => v,
+            _ => {
+                eprintln!("[AGGRESSIVE] SHOP_PASSWORD missing, auto add-to-basket skipped");
+                return 0;
+            }
+        };
+
+        let mut attempts = 0usize;
+        let mut successes = 0usize;
+
+        for encounter in encounters {
+            if let Some(seats) = &encounter.seats {
+                for seat in seats {
+                    attempts += 1;
+                    let add_result = catch_unwind(AssertUnwindSafe(|| {
+                        match_manager::connect_and_add_seat_to_cart(
+                            email.clone(),
+                            password.clone(),
+                            seat.clone(),
+                        )
+                    }));
+
+                    match add_result {
+                        Ok(Ok(())) => {
+                            successes += 1;
+                            println!(
+                                "[AGGRESSIVE] Seat added to basket: {} | {}",
+                                encounter.title,
+                                seat.seat_info.full_name
+                            );
+                        }
+                        Ok(Err(err)) => {
+                            eprintln!(
+                                "[AGGRESSIVE] Add-to-basket failed for '{}' seat '{}': {}",
+                                encounter.title,
+                                seat.seat_info.full_name,
+                                err
+                            );
+                        }
+                        Err(_) => {
+                            eprintln!(
+                                "[AGGRESSIVE] Add-to-basket panic for '{}' seat '{}' (implementation likely incomplete)",
+                                encounter.title,
+                                seat.seat_info.full_name,
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        println!(
+            "[AGGRESSIVE] Basket attempts: {}, successes: {}",
+            attempts,
+            successes
+        );
+
+        successes
+    }
+
     /// Notifies about the parsed information by constructing a message that includes the details of the encounters and the detected changes, and sending it through the notifier.
     /// 
     /// # Arguments
-    /// * `scan_result` - The result of the scan containing the list of encounters and the timestamp of when the scan was performed.
     /// * `changed` - A slice of `DiffResult` instances representing the detected changes that should be included in the notification.
     ///
     /// # Returns
     /// This method does not return a value, but it sends a formatted message through the notifier containing the details of the encounters and the detected changes.
-    fn notify_parsed_info(&self, changed: &[Encounter]) {
+    fn notify_parsed_info(&self, changed: &[Encounter], basket_successes: usize) {
+        if basket_successes > 0 {
+            self.notifier.send(&format!(
+                "🧺 <b>{} ticket(s) ajouté(s) au panier.</b>\nConnecte-toi à la billetterie pour finaliser l'achat.",
+                basket_successes
+            ));
+        }
+
         let header = format!("🏉 <b>{}</b>", self.config.club.name);
 
         for encounter in changed {

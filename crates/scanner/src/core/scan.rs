@@ -36,6 +36,10 @@ pub struct ScanResult {
 }
 
 impl Default for ScanConfig {
+    /// Creates a default `ScanConfig` with predefined values for mode, interval, club, match nature, and filters.
+    ///
+    /// # Return
+    /// A new instance of `ScanConfig` initialized with default values.
     fn default() -> Self {
         Self {
             mode: ScanMode::PassiveScan,

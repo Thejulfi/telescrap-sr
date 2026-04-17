@@ -1,4 +1,4 @@
-use scanner::{controller::notify::Notify, core::scan::{ScanConfig, ScanMode}};
+use scanner::{controller::notify::Notify, core::scan::{ScanConfig}};
 use teloxide::{
     prelude::*,
     types::{InputFile, ParseMode},
@@ -47,16 +47,12 @@ impl TelegramNotifier {
             format!("{}s", interval_sec)
         };
 
-        let mut config_lines = vec![
+        let config_lines = vec![
             format!("-  Club visé : {}", scan_config.club.name),
-            // format!("-  Mode : {}", mode),
             format!("-  Intervalle : {}", interval_str),
             format!("-  Filtres : {}", if scan_config.filter_chain.is_some() { "Oui" } else { "Non" }),
             format!("-  Aperçu : {}", if scan_config.is_preview { "Oui" } else { "Non" }),
         ];
-        // if let Some(title) = &scan_config.match_title {
-        //     config_lines.push(format!("    • Match cible : {}", title));
-        // }
 
         let config_block = config_lines.join("\n");
         let full_message = format!(

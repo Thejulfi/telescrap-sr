@@ -12,3 +12,4 @@ crates/telegram-notifier/src/main.rs
 crates/scanner/src/main.rs
 state.db
 crates/admin-panel/src/main.rs
+crates/filter/src/main.rs

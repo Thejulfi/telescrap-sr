@@ -49,6 +49,16 @@ struct ScanConfigForm {
     is_preview: Option<String>,
 }
 
+
+/// Renders the admin page with the current scanner configuration pre-filled in the form.
+///
+/// # Arguments
+/// * `state` - Shared application state containing the current `ScanConfig` available through
+///   the `watch::Sender`.
+///
+/// # Returns
+/// Returns an `Html<String>` response containing the rendered `INDEX_HTML` template populated
+/// with current configuration values.
 async fn index(State(state): State<AppState>) -> Html<String> {
     let config = state.config_tx.borrow();
     let interval = config.interval;
@@ -88,6 +98,18 @@ async fn index(State(state): State<AppState>) -> Html<String> {
     Html(html)
 }
 
+/// Updates the runtime scanner configuration from the admin form,
+/// rebuilds the filter chain, and broadcasts it through the watch channel.
+///
+/// # Arguments
+/// * `state` - Shared application state containing the `watch::Sender<ScanConfig>` used to
+///   publish the updated scanner configuration.
+/// * `form` - Submitted admin form values (`ScanConfigForm`) used to update scan mode,
+///   match nature, preview flag, and filter criteria.
+///
+/// # Returns
+/// Returns an `Html<String>` response containing the confirmation page content
+/// (`CONFIG_UPDATED_HTML`) once the new configuration has been sent.
 async fn update_config(
     State(state): State<AppState>,
     Form(form): Form<ScanConfigForm>,
@@ -149,15 +171,30 @@ async fn update_config(
     Html(CONFIG_UPDATED_HTML.to_string())
 }
 
+/// Starts the admin panel web server, allowing runtime configuration of the scanner through a web interface.
+/// The server listens on the port provided by `ADMIN_PANEL_PORT` (default: `3000`) and
+/// provides endpoints for viewing the current configuration and updating it through a form submission.
+/// 
+/// # Arguments
+/// * `config_tx` - A `watch::Sender<ScanConfig>` used to broadcast updated scanner configurations to the scanning task when changes are made through the admin panel.
+///
+/// # Returns
+/// This function runs indefinitely, serving the admin panel until the application is terminated.
 pub async fn run(config_tx: watch::Sender<ScanConfig>) {
     let state = AppState { config_tx: Arc::new(config_tx) };
+
+    let port = std::env::var("ADMIN_PANEL_PORT")
+        .ok()
+        .and_then(|v| v.parse::<u16>().ok())
+        .unwrap_or(3000);
 
     let app = Router::new()
         .route("/", get(index))
         .route("/config", post(update_config))
         .with_state(state);
 
-    let listener = TcpListener::bind("0.0.0.0:3000").await.unwrap();
-    println!("Serveur démarré sur http://localhost:3000");
+    let bind_addr = format!("0.0.0.0:{}", port);
+    let listener = TcpListener::bind(&bind_addr).await.unwrap();
+    println!("Serveur démarré sur http://localhost:{}", port);
     axum::serve(listener, app).await.unwrap();
 }
