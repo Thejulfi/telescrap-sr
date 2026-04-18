@@ -50,28 +50,45 @@ impl SeatPositionFilter {
         }
     }
 
-    /// Groups a list of seats into sublists of consecutive seats based on their seat numbers.
+    /// Groups a list of seats into sublists of adjacent seats based on their row and seat numbers.
     ///
     /// # Arguments
     /// - `seats`: A slice of seats to be grouped into consecutive groups.
     /// 
     /// # Return
-    /// A vector of vectors, where each inner vector contains seats that are consecutive in terms of their seat numbers.
+    /// A vector of vectors, where each inner vector contains seats from the same row whose
+    /// seat numbers differ by 2, matching the current adjacency rule used by the venue.
     pub fn consecutive_seats(seats: &[Seat]) -> Vec<Vec<Seat>> {
         if seats.is_empty() { return vec![]; }
 
         let mut sorted: Vec<&Seat> = seats.iter().collect();
-        sorted.sort_by_key(|s| s.seat_info.composition.seat_number);
+        sorted.sort_by(|left, right| {
+            left.seat_info
+                .composition
+                .row
+                .cmp(&right.seat_info.composition.row)
+                .then_with(|| {
+                    left.seat_info
+                        .composition
+                        .seat_number
+                        .cmp(&right.seat_info.composition.seat_number)
+                })
+        });
 
         let mut groups: Vec<Vec<Seat>> = vec![];
-        let mut current = vec![sorted[0].clone()];
+        let mut current = vec![(*sorted[0]).clone()];
 
         for i in 1..sorted.len() {
-            if sorted[i].seat_info.composition.seat_number == sorted[i - 1].seat_info.composition.seat_number + 1 {
-                current.push(sorted[i].clone());
+            let current_row = &sorted[i].seat_info.composition.row;
+            let previous_row = &sorted[i - 1].seat_info.composition.row;
+            let current_seat = sorted[i].seat_info.composition.seat_number;
+            let previous_seat = sorted[i - 1].seat_info.composition.seat_number;
+
+            if current_row == previous_row && current_seat == previous_seat + 2 {
+                current.push((*sorted[i]).clone());
             } else {
                 groups.push(current);
-                current = vec![sorted[i].clone()];
+                current = vec![(*sorted[i]).clone()];
             }
         }
         groups.push(current);
