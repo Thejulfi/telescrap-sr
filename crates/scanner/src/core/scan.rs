@@ -2,7 +2,9 @@
 use std::sync::Arc;
 use std::time::SystemTime;
 use filter::filter::filter_chain::FilterChain;
+#[allow(unused_imports)]
 use filter::filter::config::price::PriceFilter;
+#[allow(unused_imports)]
 use filter::filter::config::encounter::EncounterFilter;
 use parser::core::{
     club::{Club, ClubType},
@@ -43,20 +45,16 @@ impl Default for ScanConfig {
     fn default() -> Self {
         Self {
             mode: ScanMode::PassiveScan,
-            interval: 120,
+            interval: 60,
             club: Club::new(
                 "Stade Rochelais".to_string(),
                 ClubType::StadeRochelais,
                 "https://billetterie.staderochelais.com/fr".to_string(),
             ),
-            nature: MatchNature::Basketball,
+            nature: MatchNature::Rugby,
             // match_title: Some("STADE ROCHELAIS / UNION BORDEAUX BÈGLES".to_string()),
-            is_preview: false,
-            filter_chain: Some(Arc::new(
-                FilterChain::new()
-                .add(EncounterFilter::new(Some("STADE ROCHELAIS BASKET / SAINT-CHAMOND".to_string())))
-                .add(PriceFilter::new(Some(10.0), None))
-            )),
+            is_preview: true,
+            filter_chain: None,
         }
     }
 }
