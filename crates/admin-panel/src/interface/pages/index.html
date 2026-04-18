@@ -5,18 +5,39 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Panel — Scanner de billets</title>
     <style>
-        body { font-family: sans-serif; max-width: 640px; margin: 40px auto; padding: 0 16px; }
-        h1 { font-size: 1.4rem; }
-        h2 { font-size: 1.1rem; margin-top: 24px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
-        label { display: block; margin-bottom: 4px; font-weight: bold; }
+        body { font-family: sans-serif; max-width: 700px; margin: 40px auto; padding: 0 16px; color: #1a1a1a; }
+        h1 { font-size: 1.4rem; margin-bottom: 24px; }
+        .section {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px 24px;
+            margin-bottom: 24px;
+            background: #fafafa;
+        }
+        .section-title {
+            font-size: 1rem;
+            font-weight: bold;
+            margin: 0 0 18px 0;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e0e0e0;
+            color: #333;
+        }
+        label { display: block; margin-bottom: 4px; font-weight: bold; font-size: 0.9rem; }
         input[type=number], input[type=text], select {
             width: 100%; padding: 8px; box-sizing: border-box; margin-bottom: 14px;
+            border: 1px solid #ccc; border-radius: 4px; font-size: 0.95rem;
         }
         .row { display: flex; gap: 16px; }
         .row > div { flex: 1; }
+        .row-3 { display: flex; gap: 12px; }
+        .row-3 > div { flex: 1; }
         .checkbox-row { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
-        .checkbox-row label { margin: 0; font-weight: normal; }
-        button { padding: 10px 20px; background: #0078d4; color: white; border: none; cursor: pointer; border-radius: 4px; }
+        .checkbox-row label { margin: 0; font-weight: normal; font-size: 0.9rem; }
+        .hint { font-size: 0.78rem; color: #777; margin-top: -10px; margin-bottom: 14px; }
+        button {
+            padding: 10px 24px; background: #0078d4; color: white;
+            border: none; cursor: pointer; border-radius: 4px; font-size: 0.95rem;
+        }
         button:hover { background: #005fa3; }
     </style>
 </head>
@@ -24,49 +45,87 @@
     <h1>Admin Panel — Scanner de billets</h1>
     <form method="POST" action="/config">
 
-        <h2>Général</h2>
-        <div class="row">
-            <div>
-                <label for="interval">Intervalle (secondes)</label>
-                <input type="number" id="interval" name="interval" value="{interval}" min="10" step="10" required>
-            </div>
-            <div>
-                <label for="mode">Mode de scan</label>
-                <select id="mode" name="mode">
-                    <option value="passive" {sel_passive}>Passif</option>
-                    <option value="aggressive" {sel_aggressive}>Agressif</option>
-                </select>
-            </div>
-        </div>
+        <!-- Section 1 : Configuration du scan -->
+        <div class="section">
+            <p class="section-title">⚙️ Configuration du scan</p>
 
-        <label for="nature">Nature du match</label>
-        <select id="nature" name="nature">
-            <option value="rugby" {sel_rugby}>Rugby</option>
-            <option value="basketball" {sel_basketball}>Basketball</option>
-            <option value="other" {sel_other}>Autre</option>
-        </select>
-
-        <h2>Filtres</h2>
-        <div class="row">
-            <div>
-                <label for="price_threshold">Prix max (€, vide = sans limite)</label>
-                <input type="number" id="price_threshold" name="price_threshold"
-                       value="{price_threshold}" min="0" step="0.5">
+            <div class="row">
+                <div>
+                    <label for="interval">Intervalle (secondes)</label>
+                    <input type="number" id="interval" name="interval" value="{interval}" min="10" step="10" required>
+                </div>
+                <div>
+                    <label for="nature">Nature du match</label>
+                    <select id="nature" name="nature">
+                        <option value="rugby" {sel_rugby}>Rugby</option>
+                        <option value="basketball" {sel_basketball}>Basketball</option>
+                        <option value="other" {sel_other}>Autre</option>
+                    </select>
+                </div>
             </div>
-            <div>
-                <label for="side_by_side">Places côte à côte (vide = sans filtre)</label>
-                <input type="number" id="side_by_side" name="side_by_side"
-                       value="{side_by_side}" min="1" step="1">
+
+            <div class="checkbox-row">
+                <input type="checkbox" id="is_preview" name="is_preview" {chk_preview}>
+                <label for="is_preview">Afficher la prévisualisation de la place</label>
             </div>
         </div>
 
-        <label for="match_title">Filtre par titre du match (vide = tous) (vous devez rentrer le titre exact)</label>
-        <input type="text" id="match_title" name="match_title" value="{match_title}"
-               placeholder="ex: STADE ROCHELAIS / UNION BORDEAUX BÈGLES">
+        <!-- Section 2 : Filtres -->
+        <div class="section">
+            <p class="section-title">🔍 Filtres</p>
 
-        <div class="checkbox-row">
-            <input type="checkbox" id="is_preview" name="is_preview" {chk_preview}>
-            <label for="is_preview">Afficher la prévisualisation de la place</label>
+            <div class="row">
+                <div>
+                    <label for="mode">Mode de scan</label>
+                    <select id="mode" name="mode">
+                        <option value="passive" {sel_passive}>Passif</option>
+                        <option value="aggressive" {sel_aggressive}>Agressif</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="side_by_side">Places consécutives minimum</label>
+                    <input type="number" id="side_by_side" name="side_by_side"
+                           value="{side_by_side}" min="1" step="1">
+                </div>
+            </div>
+
+            <label for="match_title">Titre du match (vide = tous)</label>
+            <input type="text" id="match_title" name="match_title" value="{match_title}"
+                   placeholder="ex: STADE ROCHELAIS / UNION BORDEAUX BÈGLES">
+            <p class="hint">Le titre doit correspondre exactement à celui affiché sur la billetterie.</p>
+
+            <div class="row">
+                <div>
+                    <label for="price_min">Prix min (€, vide = sans limite)</label>
+                    <input type="number" id="price_min" name="price_min"
+                           value="{price_min}" min="0" step="0.5">
+                </div>
+                <div>
+                    <label for="price_max">Prix max (€, vide = sans limite)</label>
+                    <input type="number" id="price_max" name="price_max"
+                           value="{price_max}" min="0" step="0.5">
+                </div>
+            </div>
+
+            <label>Composition des places souhaitées (vide = toutes)</label>
+            <div class="row-3">
+                <div>
+                    <label for="seat_category" style="font-weight:normal;">Catégorie</label>
+                    <input type="text" id="seat_category" name="seat_category" value="{seat_category}"
+                           placeholder="ex: Catégorie 1">
+                </div>
+                <div>
+                    <label for="seat_bloc" style="font-weight:normal;">Bloc</label>
+                    <input type="text" id="seat_bloc" name="seat_bloc" value="{seat_bloc}"
+                           placeholder="ex: A">
+                </div>
+                <div>
+                    <label for="seat_row" style="font-weight:normal;">Rangée</label>
+                    <input type="text" id="seat_row" name="seat_row" value="{seat_row}"
+                           placeholder="ex: 12">
+                </div>
+            </div>
+            <p class="hint">Filtre sur la catégorie, le bloc et/ou la rangée. La correspondance est partielle (insensible à la casse).</p>
         </div>
 
         <button type="submit">Appliquer</button>

@@ -25,19 +25,6 @@ async fn main() {
         .parse()
         .expect("TELEGRAM_CHAT_ID doit être un entier");
 
-    // Seed the database with the LR / BDX match to track, then drop the handle
-    // so the scanner can open its own connection without hitting DatabaseAlreadyOpen.
-    {
-        let db = EncounterStore::open("matchs.db").unwrap();
-        db.upsert(&Encounter::new(
-            ClubType::StadeRochelais,
-            "STADE ROCHELAIS / UNION BORDEAUX BÈGLES".to_string(),
-            "samedi 18 avril à 14h30".to_string(),
-            MatchNature::Rugby,
-            Some("https://billetterie.staderochelais.com/fr/product/1048/revente_stade_rochelais_union_bordeaux_begles".to_string()),
-        )).unwrap();
-    }
-
     // ------- Step 0 : Initialize components -------
     // Telegram notifier configuration with environment variables
     let notifier = TelegramNotifier::new(bot_token, chat_id, env!("CARGO_PKG_VERSION"));

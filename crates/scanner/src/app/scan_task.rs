@@ -1,14 +1,18 @@
 
+use parser::core::encounter::Encounter;
 /// This module defines the `ScanTask` struct and its associated logic for performing periodic scans of encounters,
 /// applying filters, and notifying about changes in available seats.
 use parser::interface::match_manager;
+use filter::filter::Filter;
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use tokio::sync::watch;
 use tokio::time::{interval, Duration};
 use crate::{
-    app::diff::{diff, DiffResult, DiffType},
+    app::diff::{diff, DiffType},
     controller::notify::Notify,
     core::scan::{ScanConfig, ScanMode, ScanResult},
 };
+
 
 /// Represents a scanning task that periodically checks for changes in encounters based on a specified configuration,
 /// applies filters to the results, and sends notifications about any detected changes.
@@ -45,79 +49,77 @@ impl<N: Notify> ScanTask<N> {
                         break; // sender dropped (shutdown), exit cleanly
                     }
                     self.config = self.config_rx.borrow_and_update().clone();
+                    self.previous = None;
                     ticker = interval(Duration::from_secs(self.config.interval));
                     println!("⚙️  Configuration mise à jour, redémarrage du cycle");
                     continue;
                 }
             }
+            // variable that will be used to measure the duration of the scan process
             let scan_start = std::time::Instant::now();
+            // Fetch current encounters from the match manager in a blocking task to avoid blocking the async runtime
             let club = self.config.club.clone();
-            let has_filter = self.config.filter.is_some();
-            let is_aggressive = self.config.mode == ScanMode::AggressiveScan;
-            let match_title = self.config.filter.as_ref().and_then(|f| f.match_title.clone());
+            // Fetch match nature from config
             let nature = self.config.nature;
-            let scan_result = tokio::task::spawn_blocking(move || {
 
-                let encounters = if match_title.is_some() {
-                    if let Some(title) = match_title {
-                        match_manager::get_seats_from_match_title(title, club, nature)
-                    } else {
-                        vec![]
-                    }
-                } else {
-                    match_manager::get_seats_from_matches(club, nature)
-                };
-                if has_filter && is_aggressive {
-                    println!("⚠️  Mode agressif activé, mise au panier en automatique des sièges disponibles");
-                }
+            // Fetch encounters from the match manager in a blocking task to avoid blocking the async runtime
+            let scan_result = tokio::task::spawn_blocking(move || {
+                let encounters = match_manager::get_seats_from_matches(club, nature);
                 println!("📋 {} rencontre(s) récupérée(s)", encounters.len());
                 ScanResult::new(encounters)
             })
             .await
             .unwrap();
 
-            let changed: Vec<DiffResult> = if let Some(prev) = &self.previous {
-                diff(&prev.encounters, &scan_result.encounters)
-            } else {
-                // First iteration: treat available seats as new
-                scan_result.encounters.iter()
-                    .filter(|e| e.seats.as_ref().map_or(false, |s| !s.is_empty()))
-                    .map(|e| DiffResult { diff_type: DiffType::NewSeats, encounter_diff_only: e.clone() })
-                    .collect()
-            };
+        // Compare with previous results to detect changes (new seats)
+        let changed: Vec<Encounter> = if let Some(prev) = &self.previous {
+            diff(&prev.encounters, &scan_result.encounters)
+                .into_iter()
+                .filter(|r| r.diff_type == DiffType::NewSeats)
+                .map(|r| r.encounter_diff_only)
+                .collect()
+        } else {
+            // First iteration: treat available seats as new
+            scan_result.encounters.iter()
+                .filter(|e| e.seats.as_ref().map_or(false, |s| !s.is_empty()))
+                .cloned()
+                .collect()
+        };
+        
+        // Apply the filter chain from config (built by admin panel)
+        let result = if let Some(chain) = &self.config.filter_chain {
+            chain.apply(&changed)
+        } else {
+            changed
+        };
 
-            // Apply side by side filter if enabled
-            let changed = self.apply_side_by_side_filter(changed);
-            // Apply price filter if enabled
-            let changed = self.apply_price_filter(changed);
-            // Apply seat position filter if enabled
-            let changed = self.apply_position_filter(changed);
-            // Only notify on new seats, not on removals
-            let changed: Vec<DiffResult> = changed.into_iter().filter(|r| r.diff_type == DiffType::NewSeats).collect();
-
-            // Check if we need to load seat's preview image for the notification
-            let load_preview = self.config.filter.as_ref()
-                .and_then(|f| f.is_preview)
-                .unwrap_or(false);
-            let mut changed = changed;
-            if load_preview {
-                println!("🖼️  Chargement des aperçus de sièges...");
-                for result in &mut changed {
-                    if let Some(seats) = &mut result.encounter_diff_only.seats {
-                        for seat in seats.iter_mut() {
-                            seat.seat_info.preview_url = match_manager::get_seat_preview(
-                                &self.config.club,
-                                &seat.seat_info.composition,
-                            );
-                        }
+        // Load seat preview images if enabled
+        let mut result = result;
+        if self.config.is_preview {
+            for encounter in &mut result {
+                if let Some(seats) = &mut encounter.seats {
+                    for seat in seats.iter_mut() {
+                        seat.seat_info.preview_url = match_manager::get_seat_preview(
+                            &self.config.club,
+                            &seat.seat_info.composition,
+                        );
                     }
                 }
             }
+        }
 
-            if !changed.is_empty() {
+        // In aggressive mode, attempt to add detected seats to the basket on the ticketing website.
+        let basket_successes = if self.config.mode == ScanMode::AggressiveScan {
+            self.try_aggressive_add_to_basket(&result)
+        } else {
+            0
+        };
+
+        // Calculate elapsed time and send notifications if there are changes, otherwise log that no change was detected
+        if !result.is_empty() {
                 let elapsed = scan_start.elapsed();
-                println!("⏱️  Scan terminé en {:.2?} ({} match(es) trouvé(s))", elapsed, changed.len());
-                self.notify_parsed_info(&changed);
+                println!("⏱️  Scan terminé en {:.2?} ({} match(es) trouvé(s))", elapsed, result.len());
+                self.notify_parsed_info(&result, basket_successes);
             } else {
                 let elapsed = scan_start.elapsed();
                 println!("✅ Aucun changement détecté ({:.2?})", elapsed);
@@ -127,170 +129,114 @@ impl<N: Notify> ScanTask<N> {
         }
     }
 
-    /// Applies the seat position filter to the list of detected changes, filtering out seats that do not match the specified criteria.
+    /// In aggressive mode, attempts to automatically add detected seats to the basket on the ticketing website.
+    /// This method uses the `match_manager` to connect to the ticketing website and add seats to the cart based on the provided encounters.
     /// 
     /// # Arguments
-    /// * `changed` - A vector of `DiffResult` instances representing the detected changes before applying the position filter.
-    /// 
+    /// * `encounters` - A slice of `Encounter` instances representing the detected encounters with available seats that should be added to the basket.
     /// # Returns
-    /// A vector of `DiffResult` instances representing the detected changes after applying the position filter.
-    fn apply_position_filter(&self, changed: Vec<DiffResult>) -> Vec<DiffResult> {
-        let pos_filter = match self.config.filter.as_ref().and_then(|f| f.position.clone()) {
-            Some(p) => p,
-            None => return changed,
+    /// The number of seats that were successfully added to the basket.
+    /// 
+    /// Note: This method requires the `SHOP_EMAIL` and `SHOP_PASSWORD` environment variables to be set with valid credentials for the ticketing website.
+    fn try_aggressive_add_to_basket(&self, encounters: &[Encounter]) -> usize {
+        if encounters.is_empty() {
+            return 0;
+        }
+
+        let email = match std::env::var("SHOP_EMAIL") {
+            Ok(v) if !v.trim().is_empty() => v,
+            _ => {
+                eprintln!("[AGGRESSIVE] SHOP_EMAIL missing, auto add-to-basket skipped");
+                return 0;
+            }
+        };
+        let password = match std::env::var("SHOP_PASSWORD") {
+            Ok(v) if !v.trim().is_empty() => v,
+            _ => {
+                eprintln!("[AGGRESSIVE] SHOP_PASSWORD missing, auto add-to-basket skipped");
+                return 0;
+            }
         };
 
-        changed.into_iter()
-            .filter_map(|mut result| {
-                let seats = match result.encounter_diff_only.seats.take() {
-                    Some(s) if !s.is_empty() => s,
-                    _ => return None,
-                };
+        let mut attempts = 0usize;
+        let mut successes = 0usize;
 
-                let filtered: Vec<_> = seats.into_iter()
-                    .filter(|s| {
-                        let c = &s.seat_info.composition;
-                        (pos_filter.category.is_empty() || c.category.to_lowercase().contains(&pos_filter.category.to_lowercase()))
-                            && (pos_filter.bloc.is_empty() || c.bloc.to_lowercase().contains(&pos_filter.bloc.to_lowercase()))
-                            && (pos_filter.row.is_empty() || c.row.to_lowercase() == pos_filter.row.to_lowercase())
-                    })
-                    .collect();
+        for encounter in encounters {
+            if let Some(seats) = &encounter.seats {
+                for seat in seats {
+                    attempts += 1;
+                    let add_result = catch_unwind(AssertUnwindSafe(|| {
+                        match_manager::connect_and_add_seat_to_cart(
+                            email.clone(),
+                            password.clone(),
+                            seat.clone(),
+                        )
+                    }));
 
-                if filtered.is_empty() {
-                    None
-                } else {
-                    result.encounter_diff_only.seats = Some(filtered);
-                    Some(result)
-                }
-            })
-            .collect()
-    }
-
-    /// Applies the price filter to the list of detected changes, filtering out seats that exceed the specified price threshold.
-    /// 
-    /// # Arguments
-    /// * `changed` - A vector of `DiffResult` instances representing the detected changes before applying the price filter.
-    /// 
-    /// # Returns
-    /// A vector of `DiffResult` instances representing the detected changes after applying the price filter
-    fn apply_price_filter(&self, changed: Vec<DiffResult>) -> Vec<DiffResult> {
-        let threshold = match self.config.filter.as_ref().and_then(|f| f.price_threshold) {
-            Some(t) => t,
-            None => return changed,
-        };
-
-        changed.into_iter()
-            .filter_map(|mut result| {
-                let seats = match result.encounter_diff_only.seats.take() {
-                    Some(s) if !s.is_empty() => s,
-                    _ => return None,
-                };
-
-                let filtered: Vec<_> = seats.into_iter()
-                    .filter(|s| s.price.trim_end_matches('€').parse::<f64>().ok().map_or(false, |p| p <= threshold))
-                    .collect();
-
-                if filtered.is_empty() {
-                    None
-                } else {
-                    result.encounter_diff_only.seats = Some(filtered);
-                    Some(result)
-                }
-            })
-            .collect()
-    }
-
-    /// Applies the side-by-side filter to the list of detected changes, filtering out seats that do not have the required number of consecutive seats available.
-    /// 
-    /// # Arguments
-    /// * `changed` - A vector of `DiffResult` instances representing the detected changes before applying the side-by-side filter.
-    /// 
-    /// # Returns
-    /// A vector of `DiffResult` instances representing the detected changes after applying the side-by-side filter.
-    fn apply_side_by_side_filter(&self, changed: Vec<DiffResult>) -> Vec<DiffResult> {
-        let required = match self.config.filter.as_ref().and_then(|f| f.side_by_side) {
-            Some(n) if n > 1 => n as usize,
-            _ => return changed,
-        };
-
-        changed
-            .into_iter()
-            .filter_map(|mut result| {
-                let seats = match result.encounter_diff_only.seats.take() {
-                    Some(s) if !s.is_empty() => s,
-                    _ => return None,
-                };
-
-                // Sort by (access, row, seat_number) so consecutive seats are adjacent
-                let mut sorted = seats;
-                sorted.sort_by(|a, b| {
-                    let ac = Some((a.seat_info.composition.bloc.as_str(), a.seat_info.composition.row.as_str(), a.seat_info.composition.seat_number));
-                    let bc = Some((b.seat_info.composition.bloc.as_str(), b.seat_info.composition.row.as_str(), b.seat_info.composition.seat_number));
-                    ac.partial_cmp(&bc).unwrap_or(std::cmp::Ordering::Equal)
-                });
-
-                // Find indices that belong to a run of >= required consecutive seats
-                let mut in_group = vec![false; sorted.len()];
-                let mut run_start = 0;
-                for i in 1..=sorted.len() {
-                    let consecutive = i < sorted.len() && {
-                        let cur = &sorted[i].seat_info.composition;
-                        let prev = &sorted[i - 1].seat_info.composition;
-                        cur.bloc == prev.bloc
-                            && cur.row == prev.row
-                            && cur.seat_number == prev.seat_number + 1
-                    };
-                    if !consecutive {
-                        if i - run_start >= required {
-                            for j in run_start..i {
-                                in_group[j] = true;
-                            }
+                    match add_result {
+                        Ok(Ok(())) => {
+                            successes += 1;
+                            println!(
+                                "[AGGRESSIVE] Seat added to basket: {} | {}",
+                                encounter.title,
+                                seat.seat_info.full_name
+                            );
                         }
-                        run_start = i;
+                        Ok(Err(err)) => {
+                            eprintln!(
+                                "[AGGRESSIVE] Add-to-basket failed for '{}' seat '{}': {}",
+                                encounter.title,
+                                seat.seat_info.full_name,
+                                err
+                            );
+                        }
+                        Err(_) => {
+                            eprintln!(
+                                "[AGGRESSIVE] Add-to-basket panic for '{}' seat '{}' (implementation likely incomplete)",
+                                encounter.title,
+                                seat.seat_info.full_name,
+                            );
+                        }
                     }
                 }
+            }
+        }
 
-                let filtered: Vec<_> = sorted.into_iter().enumerate()
-                    .filter(|(i, _)| in_group[*i])
-                    .map(|(_, s)| s)
-                    .collect();
+        println!(
+            "[AGGRESSIVE] Basket attempts: {}, successes: {}",
+            attempts,
+            successes
+        );
 
-                if filtered.is_empty() {
-                    None
-                } else {
-                    result.encounter_diff_only.seats = Some(filtered);
-                    Some(result)
-                }
-            })
-            .collect()
+        successes
     }
 
     /// Notifies about the parsed information by constructing a message that includes the details of the encounters and the detected changes, and sending it through the notifier.
     /// 
     /// # Arguments
-    /// * `scan_result` - The result of the scan containing the list of encounters and the timestamp of when the scan was performed.
     /// * `changed` - A slice of `DiffResult` instances representing the detected changes that should be included in the notification.
     ///
     /// # Returns
     /// This method does not return a value, but it sends a formatted message through the notifier containing the details of the encounters and the detected changes.
-    fn notify_parsed_info(&self, changed: &[DiffResult]) {
+    fn notify_parsed_info(&self, changed: &[Encounter], basket_successes: usize) {
+        if basket_successes > 0 {
+            self.notifier.send(&format!(
+                "🧺 <b>{} ticket(s) ajouté(s) au panier.</b>\nConnecte-toi à la billetterie pour finaliser l'achat.",
+                basket_successes
+            ));
+        }
+
         let header = format!("🏉 <b>{}</b>", self.config.club.name);
 
-        for result in changed {
-            let encounter = &result.encounter_diff_only;
-            let (status_icon, status_label) = match result.diff_type {
-                DiffType::NewSeats => ("🟢", "Nouvelles places"),
-                DiffType::RemovedSeats => ("🔴", "Places retirées"),
-            };
-
+        for encounter in changed {
             let resale = match &encounter.resale_link {
                 Some(link) => format!("\n🔗 <a href=\"{}\">Accéder à la revente</a>", link),
                 None => String::new(),
             };
 
             let encounter_header = format!(
-                "{}\n\n━━━━━━━━━━━━━━━━\n\n🆚 <b>{}</b>\n📅 <i>{}</i>\n\n{} <b>{} :</b>{}",
-                header, encounter.title, encounter.date, status_icon, status_label, resale,
+                "{}\n\n━━━━━━━━━━━━━━━━\n\n🆚 <b>{}</b>\n📅 <i>{}</i>\n\n🟢 <b>Nouvelles places :</b>{}",
+                header, encounter.title, encounter.date, resale,
             );
 
             match &encounter.seats {
