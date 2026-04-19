@@ -9,6 +9,8 @@
 
 ## Compilation and deployment (manual)
 
+**SKIP THIS STEP IF YOU ARE USING THE RELEASE BUILDS FROM THE GITHUB RELEASES PAGE, AS THEY ARE ALREADY COMPILED FOR ARM64.**
+
 *Pre-requisite: Rust and Cargo must be installed on your machine.*
 
 Install the `cargo-zigbuild` tool and the stable Rust toolchain to enable cross-compilation:
@@ -92,6 +94,28 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 ```
+
+Here is another example if you're running a second instance (`bot2`):
+
+```ini
+[Unit]
+Description=Telescrap bot instance %i
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=jfi
+Group=jfi
+WorkingDirectory=/home/user/telescrap/instances/%i
+EnvironmentFile=/home/user/telescrap/instances/%i/.env
+ExecStart=/home/user/telescrap/telescrap-sr
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+````
 
 **5. Start the service**
 

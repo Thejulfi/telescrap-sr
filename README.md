@@ -12,7 +12,8 @@ Scraping tool to get notification for resale ticket, currently implemented for S
 
 - [ ] Filter rework to allow 1 passive and mulitple aggressive filters
 - [x] Admin panel to manage the bot (web interface or terminal)
-- [ ] config.json to set up the scan and filter configuration by default (and save updated ones from the admin panel).
+- [x] config.json to set up the scan and filter configuration by default (and save updated ones from the admin panel).
+- [ ] étendre l'utilisation du bot à discord (en plus de Telegram).
 
 ## Why this project ?
 
