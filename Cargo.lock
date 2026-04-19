@@ -1526,6 +1526,8 @@ version = "0.1.0"
 dependencies = [
  "filter",
  "parser",
+ "serde",
+ "serde_json",
  "tokio",
 ]
 
