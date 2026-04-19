@@ -1,4 +1,4 @@
-/// This module handles deserializing a `config_scan.json` file into a `ScanConfig`.
+/// This module handles serialization and deserialization of a `config_scan.json` file into a `ScanConfig` or from a `ScanConfig` back to JSON.
 ///
 /// The JSON format uses plain string enums and a flat list of filter descriptors,
 /// keeping the domain types (`ScanConfig`, `FilterChain`, `Club`…) free of serde concerns.
@@ -56,15 +56,28 @@
 ///
 /// ```json
 /// {
-///   "mode": "Passive",
-///   "interval": 45,
+///   "mode": "Aggressive",
+///   "interval": 60,
 ///   "club": "StadeRochelais",
 ///   "nature": "Rugby",
-///   "is_preview": true,
+///   "is_preview": false,
 ///   "filter_chain": [
-///     { "type": "Encounter", "name": "STADE ROCHELAIS" },
-///     { "type": "Price",     "min": 20.0, "max": 80.0 },
-///     { "type": "Seat",      "category": "Tribune", "bloc": null, "row": null, "min_consecutive": 2 }
+///     {
+///       "type": "Encounter",
+///       "name": "STADE ROCHELAIS / STADE FRANÇAIS"
+///     },
+///     {
+///       "type": "Price",
+///       "min": 10.0,
+///       "max": 50.0
+///     },
+///     {
+///       "type": "Seat",
+///       "category": null,
+///       "bloc": null,
+///       "row": null,
+///       "min_consecutive": 2
+///     }
 ///   ]
 /// }
 /// ```
@@ -79,7 +92,7 @@ use parser::core::{
     encounter::MatchNature,
     seat::SeatComposition,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::core::scan::{ScanConfig, ScanMode};
 
@@ -87,19 +100,19 @@ use crate::core::scan::{ScanConfig, ScanMode};
 // Raw DTOs — only used for JSON deserialization
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub enum ScanModeRaw {
     Passive,
     Aggressive,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub enum ClubRaw {
     StadeRochelais,
     UnionBordeauxBegles,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub enum NatureRaw {
     Rugby,
     Basketball,
@@ -115,7 +128,7 @@ pub enum NatureRaw {
 /// { "type": "Encounter", "name": "STADE ROCHELAIS" }
 /// { "type": "Seat",      "category": "Tribune", "min_consecutive": 2 }
 /// ```
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(tag = "type")]
 pub enum FilterDescriptor {
     Price {
@@ -138,19 +151,32 @@ pub enum FilterDescriptor {
 /// Example file:
 /// ```json
 /// {
-///   "mode": "Passive",
-///   "interval": 50,
+///   "mode": "Aggressive",
+///   "interval": 60,
 ///   "club": "StadeRochelais",
 ///   "nature": "Rugby",
-///   "is_preview": true,
+///   "is_preview": false,
 ///   "filter_chain": [
-///     { "type": "Encounter", "name": "STADE ROCHELAIS" },
-///     { "type": "Price", "min": 10.0, "max": 80.0 },
-///     { "type": "Seat", "category": "Tribune", "min_consecutive": 2 }
+///     {
+///       "type": "Encounter",
+///       "name": "STADE ROCHELAIS / STADE FRANÇAIS"
+///     },
+///     {
+///       "type": "Price",
+///       "min": 10.0,
+///       "max": 50.0
+///     },
+///     {
+///       "type": "Seat",
+///       "category": null,
+///       "bloc": null,
+///       "row": null,
+///       "min_consecutive": 2
+///     }
 ///   ]
 /// }
 /// ```
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct ScanConfigRaw {
     pub mode: ScanModeRaw,
     pub interval: u64,
@@ -163,6 +189,72 @@ pub struct ScanConfigRaw {
 // ---------------------------------------------------------------------------
 // Conversion into domain types
 // ---------------------------------------------------------------------------
+impl TryFrom<ScanConfig> for ScanConfigRaw {
+    type Error = String;
+
+    fn try_from(config: ScanConfig) -> Result<Self, Self::Error> {
+        let mode = match config.mode {
+            ScanMode::PassiveScan => ScanModeRaw::Passive,
+            ScanMode::AggressiveScan => ScanModeRaw::Aggressive,
+        };
+
+        let club = match config.club.club_type {
+            ClubType::StadeRochelais => ClubRaw::StadeRochelais,
+            ClubType::UnionBordeauxBegles => ClubRaw::UnionBordeauxBegles,
+        };
+
+        let nature = match config.nature {
+            MatchNature::Rugby => NatureRaw::Rugby,
+            MatchNature::Basketball => NatureRaw::Basketball,
+            MatchNature::Other => NatureRaw::Other,
+        };
+
+
+        let filter_encouter = config.filter_chain.as_ref().and_then(|chain| {
+            chain.encounter_title().map(|name| FilterDescriptor::Encounter { name: Some(name.to_string()) })
+        });
+
+        let filter_seat = config.filter_chain.as_ref().and_then(|chain| {
+            let category = chain.seat_category().map(|s| s.to_string());
+            let bloc = chain.seat_bloc().map(|s| s.to_string());
+            let row = chain.seat_row().map(|s| s.to_string());
+            let min_consecutive = chain.side_by_side();
+            if category.is_some() || bloc.is_some() || row.is_some() || min_consecutive.is_some() {
+                Some(FilterDescriptor::Seat { category, bloc, row, min_consecutive })
+            } else {
+                None
+            }
+        });
+
+        let filter_price = config.filter_chain.as_ref().and_then(|chain| {
+            if chain.price_min().is_some() || chain.price_max().is_some() {
+                Some(FilterDescriptor::Price { min: chain.price_min(), max: chain.price_max() })
+            } else {
+                None
+            }
+        });
+
+        let filter_chain = if filter_encouter.is_none() && filter_seat.is_none() && filter_price.is_none() {
+            None
+        } else {
+            Some(vec![filter_encouter, filter_price, filter_seat].into_iter().flatten().collect())
+        };
+
+
+
+        // Note: we don't convert the filter chain back to raw descriptors here,
+        // as it's only needed for writing back to JSON (see `write_to_file`).
+        // This conversion is one-way (raw -> domain), so we can ignore this case.
+        Ok(ScanConfigRaw {
+            mode,
+            interval: config.interval,
+            club,
+            nature,
+            is_preview: config.is_preview,
+            filter_chain: filter_chain,
+        })
+    }
+}
 
 impl TryFrom<ScanConfigRaw> for ScanConfig {
     type Error = String;
@@ -243,4 +335,17 @@ pub fn load_from_file(path: &str) -> Result<ScanConfig, String> {
     let raw: ScanConfigRaw = serde_json::from_str(&content)
         .map_err(|e| format!("Failed to parse config file '{}': {}", path, e))?;
     ScanConfig::try_from(raw)
+}
+
+/// Write a `ScanConfig` back to a JSON file at `path`.
+pub fn write_to_file(config: &ScanConfig, path: &str) -> Result<(), String> {
+    // Convert back to raw DTOs for serialization
+
+    let raw = ScanConfigRaw::try_from(config.clone())
+        .map_err(|e| format!("Failed to convert config to raw format: {}", e))?;
+    let json = serde_json::to_string_pretty(&raw)
+        .map_err(|e| format!("Failed to serialize config to JSON: {}", e))?;
+    std::fs::write(path, json)
+        .map_err(|e| format!("Failed to write config file '{}': {}", path, e))?;
+    Ok(())
 }
