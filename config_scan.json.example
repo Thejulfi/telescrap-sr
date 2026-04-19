@@ -1,0 +1,25 @@
+{
+    "mode": "Aggressive",
+    "interval": 60,
+    "club": "StadeRochelais",
+    "nature": "Rugby",
+    "is_preview": false,
+    "filter_chain": [
+        {
+            "type": "Encounter",
+            "name": "STADE ROCHELAIS / STADE FRANÇAIS"
+        },
+        {
+            "type": "Price",
+            "min": 10.0,
+            "max": 50.0
+        },
+        {
+            "type": "Seat",
+            "category": null,
+            "bloc": null,
+            "row": null,
+            "min_consecutive": 2
+        }
+    ]
+}

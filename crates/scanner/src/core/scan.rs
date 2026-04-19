@@ -2,12 +2,8 @@
 use std::sync::Arc;
 use std::time::SystemTime;
 use filter::filter::filter_chain::FilterChain;
-#[allow(unused_imports)]
-use filter::filter::config::price::PriceFilter;
-#[allow(unused_imports)]
-use filter::filter::config::encounter::EncounterFilter;
 use parser::core::{
-    club::{Club, ClubType},
+    club::Club,
     encounter::{Encounter, MatchNature},
 };
 
@@ -38,24 +34,11 @@ pub struct ScanResult {
 }
 
 impl Default for ScanConfig {
-    /// Creates a default `ScanConfig` with predefined values for mode, interval, club, match nature, and filters.
-    ///
-    /// # Return
-    /// A new instance of `ScanConfig` initialized with default values.
+    /// Loads `ScanConfig` from `config_scan.json` at the working directory.
+    /// Panics with a descriptive message if the file is missing or invalid.
     fn default() -> Self {
-        Self {
-            mode: ScanMode::PassiveScan,
-            interval: 60,
-            club: Club::new(
-                "Stade Rochelais".to_string(),
-                ClubType::StadeRochelais,
-                "https://billetterie.staderochelais.com/fr".to_string(),
-            ),
-            nature: MatchNature::Rugby,
-            // match_title: Some("STADE ROCHELAIS / UNION BORDEAUX BÈGLES".to_string()),
-            is_preview: true,
-            filter_chain: None,
-        }
+        crate::core::config_file::load_from_file("config_scan.json")
+            .unwrap_or_else(|e| panic!("❌ Impossible de charger config_scan.json : {}", e))
     }
 }
 

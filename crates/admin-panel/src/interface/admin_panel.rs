@@ -166,6 +166,8 @@ async fn update_config(
     new_config.filter_chain = Some(Arc::new(chain));
 
     println!("[DEBUG] Config mise à jour : interval={}s, nature={:?}", new_config.interval, new_config.nature);
+
+    scanner::core::config_file::write_to_file(&new_config, "config_scan.json").unwrap_or_else(|e| eprintln!("❌ Impossible d'écrire config_scan.json : {}", e));
     state.config_tx.send(new_config).ok();
 
     Html(CONFIG_UPDATED_HTML.to_string())

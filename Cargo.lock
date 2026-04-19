@@ -1526,6 +1526,8 @@ version = "0.1.0"
 dependencies = [
  "filter",
  "parser",
+ "serde",
+ "serde_json",
  "tokio",
 ]
 
@@ -1888,7 +1890,7 @@ dependencies = [
 
 [[package]]
 name = "telescrap-sr"
-version = "2.1.3"
+version = "2.1.4"
 dependencies = [
  "admin-panel",
  "dotenv",
