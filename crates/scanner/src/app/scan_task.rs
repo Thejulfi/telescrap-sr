@@ -65,7 +65,7 @@ impl<N: Notify> ScanTask<N> {
             // Fetch encounters from the match manager in a blocking task to avoid blocking the async runtime
             let scan_result = tokio::task::spawn_blocking(move || {
                 let encounters = match_manager::get_seats_from_matches(club, nature);
-                println!("📋 {} rencontre(s) récupérée(s)", encounters.len());
+                // println!("📋 {} rencontre(s) récupérée(s)", encounters.len());
                 ScanResult::new(encounters)
             })
             .await
@@ -118,11 +118,13 @@ impl<N: Notify> ScanTask<N> {
         // Calculate elapsed time and send notifications if there are changes, otherwise log that no change was detected
         if !result.is_empty() {
                 let elapsed = scan_start.elapsed();
-                println!("⏱️  Scan terminé en {:.2?} ({} match(es) trouvé(s))", elapsed, result.len());
+                println!("⚠️  {} changement(s) détecté(s) ({:.2?})", result.len(), elapsed);
+                dbg!(&result);
                 self.notify_parsed_info(&result, basket_successes);
             } else {
+                #[allow(unused_variables)]
                 let elapsed = scan_start.elapsed();
-                println!("✅ Aucun changement détecté ({:.2?})", elapsed);
+                // println!("✅ Aucun changement détecté ({:.2?})", elapsed);
             }
 
             self.previous = Some(scan_result);

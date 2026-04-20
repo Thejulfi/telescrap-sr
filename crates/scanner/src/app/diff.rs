@@ -2,6 +2,10 @@
 /// or any other changes perfomed in the resale tickets got from the parser.
 use parser::core::encounter::Encounter;
 
+fn same_seat_identity(left: &parser::core::seat::Seat, right: &parser::core::seat::Seat) -> bool {
+    left.actions.pack_id == right.actions.pack_id && left.actions.ticket_id == right.actions.ticket_id
+}
+
 /// Enumeration representing the type of difference detected between two sets of encounters, such as new seats or removed seats.
 #[derive(Debug, Clone, PartialEq)]
 pub enum DiffType {
@@ -48,13 +52,13 @@ pub fn diff(previous: &[Encounter], current: &[Encounter]) -> Vec<DiffResult> {
 
                 let added: Vec<_> = current_seats
                     .iter()
-                    .filter(|s| !prev_seats.iter().any(|ps| ps.actions.pack_id == s.actions.pack_id))
+                    .filter(|s| !prev_seats.iter().any(|ps| same_seat_identity(ps, s)))
                     .cloned()
                     .collect();
 
                 let removed: Vec<_> = prev_seats
                     .iter()
-                    .filter(|s| !current_seats.iter().any(|cs| cs.actions.pack_id == s.actions.pack_id))
+                    .filter(|s| !current_seats.iter().any(|cs| same_seat_identity(cs, s)))
                     .cloned()
                     .collect();
 
