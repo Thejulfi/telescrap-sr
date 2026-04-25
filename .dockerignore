@@ -1,0 +1,8 @@
+.git
+.github
+.devcontainer
+target
+**/target
+log.txt
+page.html
+page2.html
