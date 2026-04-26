@@ -1,76 +1,98 @@
-name: Cross-Compile and Deploy
+name: Build and Deploy
 on:
   push:
-    branches: [ main ]
+    branches: [ main, dev/jfi ]
     tags:
       - 'v*'
 
 permissions:
-  contents: write
+  contents: read
+  packages: write
 
 jobs:
-  build-linux-arm64:
+  publish-artifact-image:
     runs-on: ubuntu-latest
+    outputs:
+      image_name: ${{ steps.image.outputs.name }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+      - name: Compute image name
+        id: image
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
         with:
-          targets: aarch64-unknown-linux-gnu
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install cargo-zigbuild
-        run: cargo install cargo-zigbuild
-
-      - name: Install Zig
-        uses: mlugg/setup-zig@v1
+      - name: Generate image metadata
+        id: meta
+        uses: docker/metadata-action@v5
         with:
-          version: 0.13.0
+          images: ${{ steps.image.outputs.name }}
+          tags: |
+            type=raw,value=main,enable={{is_default_branch}}
+            type=ref,event=branch
+            type=ref,event=tag
+            type=sha,prefix=sha-,format=long
 
-      - name: Build release for Raspberry Pi 3/4 (64-bit)
-        run: cargo zigbuild --release --target aarch64-unknown-linux-gnu
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
+      - name: Build and push artifact image
+        uses: docker/build-push-action@v6
         with:
-          name: pi-binary
-          path: target/aarch64-unknown-linux-gnu/release/telescrap-sr
+          context: .
+          file: Dockerfile.ci
+          target: artifact
+          platforms: linux/arm64
+          push: true
+          build-args: |
+            TARGET=aarch64-unknown-linux-gnu
+            BIN_NAME=telescrap-sr
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
 
-      - name: Publish GitHub Release asset
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
+  deploy-on-raspberry:
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev/jfi'
+    needs: publish-artifact-image
+    runs-on:
+      - self-hosted
+      - linux
+      - ARM64
+    permissions:
+      contents: read
+      packages: read
+    env:
+      IMAGE_NAME: ${{ needs.publish-artifact-image.outputs.image_name }}
+      DEPLOY_IMAGE: ${{ needs.publish-artifact-image.outputs.image_name }}:sha-${{ github.sha }}
+      INSTALL_DIR: /home/jfi/telescrap/
+      BINARY_NAME: telescrap-sr
+      SERVICE_NAME: ${{ github.ref == 'refs/heads/main' && 'telescrap@bot3' || 'telescrap@bot2' }}
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
         with:
-          files: target/aarch64-unknown-linux-gnu/release/telescrap-sr
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Tailscale
-        if: github.ref == 'refs/heads/main'
-        uses: tailscale/github-action@v4
-        with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-          tags: tag:ci-sr-rugby-scrapper
+      - name: Pull artifact image
+        run: docker pull "$DEPLOY_IMAGE"
 
-      - name: Prepare deployment directory
-        if: github.ref == 'refs/heads/main'
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.PI_HOST }}
-          username: jfi
-          key: ${{ secrets.RPI_SSH_KEY }}
-          script: |
-            mkdir -p ~/rust-project
-            chmod 755 ~/rust-project
-            rm -f ~/rust-project/telescrap-sr
+      - name: Install binary from artifact image
+        run: |
+          mkdir -p "$INSTALL_DIR"
+          container_id=$(docker create "$DEPLOY_IMAGE" "/$BINARY_NAME")
+          trap 'docker rm -f "$container_id" >/dev/null 2>&1 || true' EXIT
+          docker cp "$container_id:/$BINARY_NAME" "$INSTALL_DIR/$BINARY_NAME"
+          chmod 755 "$INSTALL_DIR/$BINARY_NAME"
 
-      - name: Copy file via SCP
-        if: github.ref == 'refs/heads/main'
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.PI_HOST }}
-          username: jfi
-          key: ${{ secrets.RPI_SSH_KEY }}
-          source: "target/aarch64-unknown-linux-gnu/release/telescrap-sr"
-          target: "~/rust-project/"
-          strip_components: 3
-          overwrite: true
+      - name: Restart service
+        run: |
+          sudo systemctl restart "$SERVICE_NAME"
+          sudo systemctl status "$SERVICE_NAME" --no-pager

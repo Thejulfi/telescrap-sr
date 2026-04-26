@@ -197,6 +197,6 @@ pub async fn run(config_tx: watch::Sender<ScanConfig>) {
 
     let bind_addr = format!("0.0.0.0:{}", port);
     let listener = TcpListener::bind(&bind_addr).await.unwrap();
-    println!("Serveur démarré sur http://localhost:{}", port);
+    println!("Server as start on http://localhost:{}", port);
     axum::serve(listener, app).await.unwrap();
 }

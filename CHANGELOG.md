@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.5] - 2026-04-26
+
+### Changed
+- Improved diffference detection logic.
+- Refactored the CI workflow to use a GitHub-hosted runner for builds and a self-hosted server runner for deployments across different environments (dev and prod).
+- Translated one log from French to English in the `admin_panel` crate for consistency with the rest of the codebase.
+
 ## [2.1.4] - 2026-04-19
 
 ### Changed
