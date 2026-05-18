@@ -15,7 +15,6 @@ services:
     env_file:
       - .env
     volumes:
-      - ./config_scan.json:/app/config_scan.json:ro
       - scanner-1-data:/app/data
     restart: unless-stopped
 
@@ -35,7 +34,6 @@ services:
     env_file:
       - .env
     volumes:
-      - ./config_scan.json:/app/config_scan.json:ro
       - scanner-2-data:/app/data
     restart: unless-stopped
 

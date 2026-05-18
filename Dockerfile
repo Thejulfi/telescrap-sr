@@ -47,6 +47,9 @@ WORKDIR /app
 # Copy the built binary from builder
 COPY --from=builder /app/target/release/telescrap-sr /usr/local/bin/telescrap-sr
 
+# Copy config file
+COPY --chown=telescrap:telescrap config_scan.json /app/config_scan.json
+
 USER telescrap
 
 # Default environment variables (can be overridden)
