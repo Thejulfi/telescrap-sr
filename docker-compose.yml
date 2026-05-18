@@ -3,7 +3,7 @@ services:
   scanner-1:
     build:
       context: .
-      dockerfile: Dockerfile.admin
+      dockerfile: Dockerfile
     container_name: telescrap-scanner-1
     ports:
       - "3000:3000"
@@ -24,7 +24,7 @@ services:
   scanner-2:
     build:
       context: .
-      dockerfile: Dockerfile.admin
+      dockerfile: Dockerfile
     container_name: telescrap-scanner-2
     ports:
       - "3001:3000"
