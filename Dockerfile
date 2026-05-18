@@ -39,10 +39,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Create a non-root user for security
 RUN useradd -m -u 1000 telescrap
 
-# Create and set permissions for /app and /app/data directories
+# Create and set permissions for /app directory
 RUN mkdir -p /app /app/data && chown -R telescrap:telescrap /app && chmod -R 755 /app
 
-WORKDIR /app/data
+WORKDIR /app
 
 # Copy the built binary from builder
 COPY --from=builder /app/target/release/telescrap-sr /usr/local/bin/telescrap-sr
